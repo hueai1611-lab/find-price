@@ -12,9 +12,15 @@ import type { SearchResult } from '@/lib/search/search-types';
 
 type ApiErrorBody = { error?: string };
 
-type QueryRun = { query: string; results: SearchResult[] };
+type QueryRun = {
+  query: string;
+  results: SearchResult[];
+  /** Full ranked count from API (can exceed `results.length` when API caps at 5). */
+  totalMatched?: number;
+};
 
-const SEARCH_DRAFT_KEY = 'find-price-search-draft-v1';
+/** Bumped so old drafts (no `totalMatched`) do not keep showing "Tổng 5" after API fix. */
+const SEARCH_DRAFT_KEY = 'find-price-search-draft-v2';
 
 type SearchDraftStored = {
   v: 1;
@@ -84,6 +90,15 @@ function moreResultsHref(queryTrimmed: string, pricePeriodCode: string) {
   return `/search/all?${params.toString()}`;
 }
 
+function parseTotalMatched(raw: unknown, fallback: number): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
 function resolvePeriodAfterLoad(
   draftPeriod: string | undefined,
   periods: string[],
@@ -142,6 +157,53 @@ export default function SearchToolPage() {
       const nextPeriod = resolvePeriodAfterLoad(d?.pricePeriodCode, periods);
       /* eslint-disable react-hooks/set-state-in-effect */
       setPricePeriodCode(nextPeriod);
+
+      const restored = d?.byQuery;
+      if (
+        Array.isArray(restored) &&
+        restored.length > 0 &&
+        restored.some((r) => r.totalMatched === undefined)
+      ) {
+        const p2 = nextPeriod.trim();
+        try {
+          const filled = await Promise.all(
+            restored.map(async (run) => {
+              if (run.totalMatched !== undefined) return run;
+              const params = new URLSearchParams({ query: run.query });
+              if (p2) params.set('pricePeriodCode', p2);
+              const res = await fetch(`/api/search?${params.toString()}`, {
+                cache: 'no-store',
+              });
+              if (!res.ok) {
+                return { ...run, totalMatched: run.results.length };
+              }
+              const data: { totalMatched?: unknown; results?: unknown } =
+                await res.json();
+              const rawLen = Array.isArray(data.results)
+                ? data.results.length
+                : run.results.length;
+              return {
+                ...run,
+                totalMatched: parseTotalMatched(data.totalMatched, rawLen),
+              };
+            }),
+          );
+          if (!cancelled) {
+            setByQuery(filled);
+            if (d) {
+              writeSearchDraft({
+                v: 1,
+                queryText: d.queryText,
+                pricePeriodCode: nextPeriod,
+                byQuery: filled,
+                lastSearchAttempted: d.lastSearchAttempted,
+              });
+            }
+          }
+        } catch {
+          /* giữ byQuery đã restore */
+        }
+      }
       /* eslint-enable react-hooks/set-state-in-effect */
     })();
     return () => {
@@ -173,8 +235,10 @@ export default function SearchToolPage() {
         const res = await fetch(`/api/search?${params.toString()}`, {
           cache: 'no-store',
         });
-        const data: { results?: SearchResult[] } & ApiErrorBody =
-          await res.json();
+        const data: {
+          results?: SearchResult[];
+          totalMatched?: unknown;
+        } & ApiErrorBody = await res.json();
 
         if (!res.ok) {
           setByQuery([]);
@@ -185,6 +249,7 @@ export default function SearchToolPage() {
         }
 
         const raw = Array.isArray(data.results) ? data.results : [];
+        const totalMatched = parseTotalMatched(data.totalMatched, raw.length);
         const next: QueryRun[] = [
           {
             query: lines[0],
@@ -192,6 +257,7 @@ export default function SearchToolPage() {
               raw,
               pricePeriodCode,
             ),
+            totalMatched,
           },
         ];
         setByQuery(next);
@@ -214,7 +280,7 @@ export default function SearchToolPage() {
           ...(p ? { pricePeriodCode: p } : {}),
         }),
       });
-      const data: { byQuery?: QueryRun[] } & ApiErrorBody = await res.json();
+      const data: { byQuery?: unknown } & ApiErrorBody = await res.json();
 
       if (!res.ok) {
         setByQuery([]);
@@ -223,13 +289,23 @@ export default function SearchToolPage() {
       }
 
       const rawRuns = Array.isArray(data.byQuery) ? data.byQuery : [];
-      const next = rawRuns.map((run) => ({
-        ...run,
-        results: reorderSearchResultsByTongCongPresence(
-          Array.isArray(run.results) ? run.results : [],
-          pricePeriodCode,
-        ),
-      }));
+      const next = rawRuns.map((run: unknown) => {
+        const r = run as {
+          query?: string;
+          results?: unknown;
+          totalMatched?: unknown;
+        };
+        const raw = Array.isArray(r.results) ? r.results : [];
+        const totalMatched = parseTotalMatched(r.totalMatched, raw.length);
+        return {
+          query: typeof r.query === 'string' ? r.query : '',
+          results: reorderSearchResultsByTongCongPresence(
+            raw as SearchResult[],
+            pricePeriodCode,
+          ),
+          totalMatched,
+        };
+      });
       setByQuery(next);
       writeSearchDraft({
         v: 1,
@@ -361,7 +437,7 @@ export default function SearchToolPage() {
                 Số kết quả
               </th>
               <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Xem thêm
+                Link
               </th>
             </tr>
           </thead>
@@ -391,7 +467,8 @@ export default function SearchToolPage() {
             ) : (
               byQuery.map((run, i) => {
                 const top = pickMainTableTop(run.results, pricePeriodCode);
-                const showMoreLink = run.results.length > 1;
+                const hitTotal = run.totalMatched ?? run.results.length;
+                const showMoreLink = hitTotal > 1;
                 const moreHref = moreResultsHref(run.query, pricePeriodCode);
                 return (
                   <tr key={`${i}-${run.query}`} className="align-top">
@@ -416,7 +493,7 @@ export default function SearchToolPage() {
                     </td>
                     <td className="border-r border-zinc-100 px-2 py-2">
                       <span className="text-xs tabular-nums text-zinc-600">
-                        Tổng {run.results.length} kết quả
+                        Tổng {hitTotal} kết quả
                       </span>
                     </td>
                     <td className="border-r border-zinc-100 px-2 py-2">

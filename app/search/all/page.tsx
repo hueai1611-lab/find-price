@@ -36,7 +36,9 @@ export default async function SearchAllResultsPage({
     );
   }
 
-  const rawResults = await searchItems(query, pricePeriodCode);
+  const { results: rawResults } = await searchItems(query, pricePeriodCode, {
+    maxResults: Infinity,
+  });
   const periodForOrder = pricePeriodCode ?? '';
   const results = reorderSearchResultsByTongCongPresence(
     rawResults,
@@ -62,9 +64,10 @@ export default async function SearchAllResultsPage({
         ) : null}
       </p>
       <p className="mb-4 text-xs text-zinc-500">
-        Cùng logic truy vấn như <span className="font-mono">GET /api/search</span>{' '}
-        — sau đó ưu tiên các dòng có Giá Tổng (tongCong) lên trước, giữ nguyên thứ
-        tự tương đối trong từng nhóm.
+        Cùng logic truy vấn như{' '}
+        <span className="font-mono">GET /api/search</span> — sau đó ưu tiên các
+        dòng có Giá Tổng (tongCong) lên trước, giữ nguyên thứ tự tương đối trong
+        từng nhóm.
       </p>
 
       <div className="max-h-[70vh] overflow-auto border border-zinc-300 bg-white">
@@ -79,6 +82,9 @@ export default async function SearchAllResultsPage({
               </th>
               <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
                 Tổng cộng
+              </th>
+              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
+                Đơn vị
               </th>
               <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
                 Dòng nguồn
@@ -109,6 +115,9 @@ export default async function SearchAllResultsPage({
                   </td>
                   <td className="border-r border-zinc-100 px-2 py-2 font-mono text-sm font-semibold tabular-nums text-zinc-900">
                     {dash(r.tongCong)}
+                  </td>
+                  <td className="border-r border-zinc-100 px-2 py-2 font-mono text-sm font-semibold tabular-nums text-zinc-900">
+                    {dash(r.donVi)}
                   </td>
                   <td className="border-r border-zinc-100 px-2 py-2 font-mono text-[11px]">
                     <Link

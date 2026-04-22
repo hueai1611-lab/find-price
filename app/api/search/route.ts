@@ -21,9 +21,9 @@ export async function GET(request: Request) {
       ? rawPeriod.trim()
       : undefined;
 
-  const results = await searchItems(query, pricePeriodCode);
+  const { results, totalMatched } = await searchItems(query, pricePeriodCode);
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, totalMatched });
 }
 
 type PostBody = {
@@ -33,7 +33,7 @@ type PostBody = {
 
 /**
  * Multiple BOQ lines in one request: runs the same `searchItems` logic per line.
- * Response: `{ byQuery: { query, results }[] }` (order preserved).
+ * Response: `{ byQuery: { query, results, totalMatched }[] }` (order preserved).
  */
 export async function POST(request: Request) {
   let body: PostBody;
@@ -62,10 +62,10 @@ export async function POST(request: Request) {
       : undefined;
 
   const byQuery = await Promise.all(
-    queries.map(async (query) => ({
-      query,
-      results: await searchItems(query, pricePeriodCode),
-    }))
+    queries.map(async (query) => {
+      const { results, totalMatched } = await searchItems(query, pricePeriodCode);
+      return { query, results, totalMatched };
+    })
   );
 
   return NextResponse.json({ byQuery });

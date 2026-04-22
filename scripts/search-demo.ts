@@ -23,7 +23,10 @@ const RUNS: Run[] = [
 
 async function main() {
   for (const run of RUNS) {
-    const results = await searchItems(run.query, run.selectedPricePeriodCode);
+    const { results, totalMatched } = await searchItems(
+      run.query,
+      run.selectedPricePeriodCode
+    );
 
     console.log(
       JSON.stringify(
@@ -33,6 +36,7 @@ async function main() {
             ? { selectedPricePeriodCode: run.selectedPricePeriodCode }
             : {}),
           hitCount: results.length,
+          totalMatched,
           results,
         },
         null,

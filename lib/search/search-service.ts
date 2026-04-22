@@ -53,10 +53,25 @@ function smallestQuyCmCap(quy: string | null | undefined): number | null {
   return caps.length ? Math.min(...caps) : null;
 }
 
+export type SearchItemsOptions = {
+  /**
+   * Max rows returned after ranking. Default 5.
+   * Use `Infinity` for no cap (e.g. full list UI); retrieval `take` limits still apply.
+   */
+  maxResults?: number;
+};
+
+export type SearchItemsPayload = {
+  results: SearchResult[];
+  /** Count after ranking / sort, before `maxResults` slice (matches “Xem thêm” row count). */
+  totalMatched: number;
+};
+
 export async function searchItems(
   query: string,
-  selectedPricePeriodCode?: string
-): Promise<SearchResult[]> {
+  selectedPricePeriodCode?: string,
+  options?: SearchItemsOptions
+): Promise<SearchItemsPayload> {
   const normalizedQuery = normalizeQuery(query);
   const periodFilter = Boolean(selectedPricePeriodCode);
 
@@ -214,7 +229,7 @@ export async function searchItems(
   });
 
   if (!latestBatch) {
-    return [];
+    return { results: [], totalMatched: 0 };
   }
 
   type BoqSearchRow = Prisma.BoqItemGetPayload<{
@@ -319,7 +334,7 @@ export async function searchItems(
     }
   }
 
-  const results: SearchResult[] = filteredCandidates.map((item) => {
+  const scored: SearchResult[] = filteredCandidates.map((item) => {
     const ranking = calculateScore(normalizedQuery, {
       normalizedSearchText: item.normalizedSearchText,
       normalizedNoiDungCongViec: item.normalizedNoiDungCongViec,
@@ -363,16 +378,20 @@ export async function searchItems(
     };
   });
 
-  return results
-    .sort((a, b) => {
-      if (queryHasCm) {
-        const ca = smallestQuyCmCap(a.quyCachKyThuat);
-        const cb = smallestQuyCmCap(b.quyCachKyThuat);
-        if (ca != null && cb != null && ca !== cb) return ca - cb;
-        if (ca != null && cb == null) return -1;
-        if (ca == null && cb != null) return 1;
-      }
-      return b.score - a.score;
-    })
-    .slice(0, 5);
+  const sorted = scored.sort((a, b) => {
+    if (queryHasCm) {
+      const ca = smallestQuyCmCap(a.quyCachKyThuat);
+      const cb = smallestQuyCmCap(b.quyCachKyThuat);
+      if (ca != null && cb != null && ca !== cb) return ca - cb;
+      if (ca != null && cb == null) return -1;
+      if (ca == null && cb != null) return 1;
+    }
+    return b.score - a.score;
+  });
+  const totalMatched = sorted.length;
+  const maxResults = options?.maxResults ?? 5;
+  return {
+    results: sorted.slice(0, maxResults),
+    totalMatched,
+  };
 }
