@@ -17,6 +17,9 @@ function dash(s: string | null | undefined) {
   return t ? t : '—';
 }
 
+const td =
+  'border-b border-slate-100 px-3 py-3 align-top text-slate-800 sm:px-4';
+
 type Props = {
   results: SearchResult[];
   query: string;
@@ -38,7 +41,6 @@ export function SearchAllResultsTable({
     setSelectedId(initialSelectedItemId);
   }, [initialSelectedItemId]);
 
-  /** Expand draft `byQuery` for this query to full server list so Search can render any chosen row. */
   useEffect(() => {
     if (results.length === 0) return;
     const d = readSearchDraft();
@@ -83,12 +85,14 @@ export function SearchAllResultsTable({
   };
 
   const defaultPick =
-    pickMainTableTop(results, pricePeriodCode)?.itemId ?? results[0]?.itemId ?? '';
+    pickMainTableTop(results, pricePeriodCode)?.itemId ??
+    results[0]?.itemId ??
+    '';
 
   if (results.length === 0) {
     return (
       <tr>
-        <td colSpan={6} className="px-2 py-6 text-center text-zinc-500">
+        <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-500">
           Không có kết quả.
         </td>
       </tr>
@@ -102,34 +106,43 @@ export function SearchAllResultsTable({
         return (
           <tr
             key={r.itemId}
-            className={`border-b border-zinc-200 align-top last:border-b-0 ${
-              isChosen ? 'bg-emerald-50/80' : ''
-            }`}
+            className={[
+              'transition-colors hover:bg-slate-50/90',
+              isChosen
+                ? 'border-l-2 border-l-indigo-500 bg-indigo-50/60'
+                : 'border-l-2 border-l-transparent',
+            ].join(' ')}
           >
-            <td className="border-r border-zinc-100 px-2 py-2 tabular-nums text-zinc-700">
+            <td
+              className={`${td} border-r border-slate-100 font-medium tabular-nums text-slate-500`}
+            >
               {i + 1}
             </td>
-            <td className="border-r border-zinc-100 px-2 py-2 text-zinc-800">
+            <td className={`${td} max-w-md border-r border-slate-100`}>
               {buildShortResultSummary(r)}
             </td>
-            <td className="border-r border-zinc-100 px-2 py-2 font-mono text-sm font-semibold tabular-nums text-zinc-900">
+            <td
+              className={`${td} border-r border-slate-100 text-right font-mono text-sm font-semibold tabular-nums text-slate-900`}
+            >
               {dash(r.tongCong)}
             </td>
-            <td className="border-r border-zinc-100 px-2 py-2 font-mono text-sm font-semibold tabular-nums text-zinc-900">
+            <td
+              className={`${td} border-r border-slate-100 font-mono text-xs text-slate-600`}
+            >
               {dash(r.donVi)}
             </td>
-            <td className="border-r border-zinc-100 px-2 py-2 font-mono text-[11px]">
+            <td className={`${td} border-r border-slate-100 font-mono text-xs`}>
               <Link
                 href={`/inspect/row?itemId=${encodeURIComponent(r.itemId)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-700 underline decoration-blue-600/60 hover:decoration-blue-700"
+                className="font-medium text-indigo-600 underline decoration-indigo-200 underline-offset-2 hover:text-indigo-800"
               >
                 Row {r.sourceRowNumber ?? '—'} · {dash(r.sheetName)}
               </Link>
             </td>
-            <td className="border-r border-zinc-100 px-2 py-2 text-xs text-zinc-800">
-              <label className="flex cursor-pointer items-center gap-2">
+            <td className={`${td} text-xs text-slate-800`}>
+              <label className="flex cursor-pointer items-start gap-2.5">
                 <input
                   type="radio"
                   name={`best-row-${encodeURIComponent(query)}`}
@@ -140,11 +153,11 @@ export function SearchAllResultsTable({
                     setSelectedId(r.itemId);
                     persistSelection(r.itemId);
                   }}
-                  className="accent-zinc-800"
+                  className="mt-0.5 accent-indigo-600"
                 />
-                <span>
+                <span className="leading-snug">
                   {isChosen
-                    ? 'Dòng chính (bảng Search)'
+                    ? 'Dòng chính (bảng Tra cứu)'
                     : r.itemId === defaultPick
                       ? 'Mặc định hệ thống'
                       : '—'}

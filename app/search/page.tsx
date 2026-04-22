@@ -136,8 +136,7 @@ export default function SearchToolPage() {
 
   const copyTsvRows = useCallback(async () => {
     if (byQuery.length === 0) return;
-    const header = ['Query', 'Tóm tắt', 'Giá Tổng', 'Đơn vị']
-      .join('\t');
+    const header = ['Query', 'Tóm tắt', 'Giá Tổng', 'Đơn vị'].join('\t');
     const rows = byQuery.map((run) => {
       const top = getDisplayedTop(
         run,
@@ -396,27 +395,39 @@ export default function SearchToolPage() {
 
   const colCount = 7;
 
+  const thBase =
+    'sticky top-0 z-20 border-b border-slate-200 bg-slate-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-4';
+  const tdBase =
+    'border-b border-slate-100 px-3 py-3 align-top text-slate-800 sm:px-4';
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-zinc-900">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-lg font-semibold">Search</h1>
-        <Link
-          href="/settings/search"
-          className="text-xs text-blue-700 underline decoration-blue-600/60"
-        >
-          Cài đặt retrieval (take)
-        </Link>
-      </div>
+    <main className="mx-auto max-w-6xl px-4 py-6 text-sm sm:px-6 sm:py-8">
+      <header className="mb-4">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+          Tra cứu BOQ
+        </h1>
+        <p className="mt-0.5 max-w-2xl text-xs leading-snug text-slate-600 sm:text-sm sm:leading-relaxed">
+          Mỗi dòng một BOQ · chọn kỳ giá · Enter chạy search, Shift+Enter xuống
+          dòng.
+        </p>
+      </header>
 
       <form
         onSubmit={onSubmit}
-        className="mb-6 flex flex-col gap-3 border border-zinc-300 bg-zinc-50 p-4"
+        className="mb-6 grid grid-cols-1 gap-3 lg:gap-[40px]  rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm ring-1 ring-slate-900/5 sm:gap-4 sm:p-4 lg:grid-cols-12 lg:gap-4"
       >
-        <label className="flex flex-col gap-1">
-          <span className="font-medium text-zinc-700">
-            Query (mỗi dòng = một BOQ)
-          </span>
+        <div className="flex min-w-0 flex-col gap-1 lg:col-span-8">
+          <label
+            htmlFor="search-query"
+            className="text-sm font-medium text-slate-700"
+          >
+            Query{' '}
+            <span className="font-normal text-slate-500">
+              (mỗi dòng = một BOQ)
+            </span>
+          </label>
           <textarea
+            id="search-query"
             value={queryText}
             onChange={(e) => setQueryText(e.target.value)}
             onKeyDown={(e) => {
@@ -424,220 +435,255 @@ export default function SearchToolPage() {
               e.preventDefault();
               e.currentTarget.form?.requestSubmit();
             }}
-            rows={5}
-            className="min-h-[6rem] w-full border border-zinc-300 bg-white px-2 py-1.5 font-mono text-xs"
+            rows={3}
+            className="max-h-36 min-h-[120px] w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             autoComplete="off"
             spellCheck={false}
           />
-          <span className="text-xs text-zinc-500">
-            Enter để chạy search · Shift+Enter để xuống dòng
+          <span className="text-[11px] text-slate-500 mt-[8px]">
+            Enter = search · Shift+Enter = xuống dòng
           </span>
-        </label>
+        </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="font-medium text-zinc-700">pricePeriodCode</span>
-          <select
-            value={pricePeriodCode}
-            onChange={(e) => {
-              const v = e.target.value;
-              setPricePeriodCode(v);
-              setByQuery([]);
-              setSelectedItemIdByQuery({});
-              setError(null);
-              setLastSearchAttempted(false);
-              writeSearchDraft({
-                v: 1,
-                queryText,
-                pricePeriodCode: v,
-                byQuery: [],
-                lastSearchAttempted: false,
-                selectedItemIdByQuery: {},
-              });
-            }}
-            className="max-w-xs border border-zinc-300 bg-white px-2 py-1.5"
+        <div className="flex min-w-0 flex-col gap-2 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0 lg:col-span-4 lg:self-stretch lg:border-0 lg:pt-0 lg:pb-[30px]">
+          <label htmlFor="search-period" className="block min-w-0 w-full">
+            <span className="mb-1 block text-sm font-medium text-slate-700">
+              Kỳ giá{' '}
+              <span className="font-mono text-xs font-normal text-slate-500">
+                pricePeriodCode
+              </span>
+            </span>
+            <select
+              id="search-period"
+              value={pricePeriodCode}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPricePeriodCode(v);
+                setByQuery([]);
+                setSelectedItemIdByQuery({});
+                setError(null);
+                setLastSearchAttempted(false);
+                writeSearchDraft({
+                  v: 1,
+                  queryText,
+                  pricePeriodCode: v,
+                  byQuery: [],
+                  lastSearchAttempted: false,
+                  selectedItemIdByQuery: {},
+                });
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="">Bỏ qua (server dùng dòng giá đầu tiên)</option>
+              {availablePeriods.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-50 sm:h-[42px] sm:px-6 lg:mt-auto lg:h-10"
           >
-            <option value="">Omit param (server uses first price row)</option>
-            {availablePeriods.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-zinc-500">
-            Danh sách kỳ lấy từ các import đã hoàn thành (tên file / batch). Đổi
-            kỳ sẽ xóa bảng kết quả — bấm Search lại để lấy giá đúng kỳ.
-          </span>
-        </label>
+            {loading ? 'Đang tìm…' : 'Search'}
+          </button>
+        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-fit border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-50"
-        >
-          {loading ? '…' : 'Search'}
-        </button>
+        {/* <p className="col-span-full text-[11px] leading-snug text-slate-500">
+          Kỳ giá theo import đã hoàn thành; đổi kỳ xóa bảng kết quả — cần Search
+          lại.
+        </p> */}
       </form>
 
       {error ? (
         <p
-          className="mb-4 border border-red-300 bg-red-50 px-2 py-1.5 text-red-900"
+          className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
           role="alert"
         >
           {error}
         </p>
       ) : null}
 
-      <h2 className="mb-2 font-medium text-zinc-700">Kết quả tốt nhất</h2>
-      <p className="mb-2 text-xs text-zinc-500">
-        Một dòng query → một dòng bảng (hạng 1). Nhiều dòng → một POST gọi{' '}
-        <span className="font-mono">searchItems</span> cho từng dòng. &quot;Xem
-        thêm&quot; chỉ hiện khi dòng đó có trên 1 kết quả; cùng tab, quay lại
-        Search giữ nguyên nội dung đã nhập.
-      </p>
+      <section className="space-y-4" aria-labelledby="results-heading">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2
+              id="results-heading"
+              className="text-lg font-semibold text-slate-900"
+            >
+              Kết quả tốt nhất
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">
+              Một dòng query → một dòng bảng. Nhiều dòng gọi{' '}
+              <span className="font-mono text-slate-600">searchItems</span> theo
+              từng dòng. &quot;Xem thêm&quot; khi có trên một kết quả.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={byQuery.length === 0}
+              onClick={() => void copyGiáTổngColumn()}
+              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
+            >
+              Copy Giá Tổng
+            </button>
+            <button
+              type="button"
+              disabled={byQuery.length === 0}
+              onClick={() => void copyTsvRows()}
+              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
+            >
+              Copy TSV
+            </button>
+            {copyHint ? (
+              <span className="text-xs text-slate-600" role="status">
+                {copyHint}
+              </span>
+            ) : null}
+          </div>
+        </div>
 
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={byQuery.length === 0}
-          onClick={() => void copyGiáTổngColumn()}
-          className="border border-zinc-400 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-100 disabled:opacity-40"
-        >
-          Copy Giá Tổng
-        </button>
-        <button
-          type="button"
-          disabled={byQuery.length === 0}
-          onClick={() => void copyTsvRows()}
-          className="border border-zinc-400 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-100 disabled:opacity-40"
-        >
-          Copy TSV
-        </button>
-        {copyHint ? (
-          <span className="text-xs text-zinc-600" role="status">
-            {copyHint}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="max-h-[70vh] overflow-auto border border-zinc-300 bg-white">
-        <table className="w-full min-w-[90%] border-separate border-spacing-0 text-left text-sm">
-          <thead>
-            <tr>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                STT
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Query
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Tóm tắt
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Giá Tổng
-              </th>
-              <th className="sticky top-0 z-20 border-b border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-mono text-[11px] font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Đơn vị
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Số kết quả
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Link
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && byQuery.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={colCount}
-                  className="px-2 py-6 text-center text-zinc-500"
-                >
-                  Đang tìm…
-                </td>
-              </tr>
-            ) : byQuery.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={colCount}
-                  className="px-2 py-6 text-center text-zinc-500"
-                >
-                  {error
-                    ? '—'
-                    : lastSearchAttempted
-                      ? 'Không có kết quả.'
-                      : 'Chưa có kết quả. Nhập query và Search.'}
-                </td>
-              </tr>
-            ) : (
-              byQuery.map((run, i) => {
-                const top = getDisplayedTop(
-                  run,
-                  pricePeriodCode,
-                  selectedItemIdByQuery[run.query],
-                );
-                const hitTotal = run.totalMatched ?? run.results.length;
-                const showMoreLink = hitTotal > 1;
-                const moreHref = moreResultsHref(
-                  run.query,
-                  pricePeriodCode,
-                  top?.itemId,
-                );
-                return (
-                  <tr key={`${i}-${run.query}`} className="align-top">
-                    <td className="border-r border-zinc-100 px-2 py-2 tabular-nums text-zinc-700">
-                      {i + 1}
-                    </td>
-                    <td className="max-w-[500px] border-r border-zinc-100 px-2 py-2 text-zinc-800">
-                      <span className="break-words font-mono text-[11px] leading-snug">
-                        {run.query}
-                      </span>
-                    </td>
-                    <td className="border-r border-zinc-100 px-2 py-2 text-zinc-800">
-                      {top ? buildShortResultSummary(top) : '—'}
-                    </td>
-                    <td className="border-r border-zinc-100 px-2 py-2 font-mono text-sm font-semibold tabular-nums text-zinc-900">
-                      {top
-                        ? formatTongCongForSelectedPeriod(top, pricePeriodCode)
-                        : '—'}
-                    </td>
-                    <td className="px-2 py-2 font-mono text-[11px] leading-snug break-all text-zinc-600">
-                      {top ? dash(top.donVi) : '—'}
-                    </td>
-                    <td className="border-r border-zinc-100 px-2 py-2">
-                      <span className="text-xs tabular-nums text-zinc-600">
-                        Tổng {hitTotal} kết quả
-                      </span>
-                    </td>
-                    <td className="border-r border-zinc-100 px-2 py-2">
-                      {showMoreLink ? (
-                        <Link
-                          href={moreHref}
-                          onClick={() =>
-                            writeSearchDraft({
-                              v: 1,
-                              queryText,
-                              pricePeriodCode,
-                              byQuery,
-                              lastSearchAttempted,
-                              selectedItemIdByQuery,
-                            })
-                          }
-                          className="text-blue-700 underline decoration-blue-600/60 hover:decoration-blue-700"
-                        >
-                          Xem thêm
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
+        <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/5">
+          <div className="max-h-[min(70vh,560px)] overflow-auto">
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+              <thead>
+                <tr>
+                  <th className={`${thBase} w-12 border-r border-slate-200`}>
+                    STT
+                  </th>
+                  <th className={`${thBase} border-r border-slate-200`}>
+                    Query
+                  </th>
+                  <th className={`${thBase} border-r border-slate-200`}>
+                    Tóm tắt
+                  </th>
+                  <th
+                    className={`${thBase} border-r border-slate-200 text-right`}
+                  >
+                    Giá Tổng
+                  </th>
+                  <th className={`${thBase} border-r border-slate-200`}>
+                    Đơn vị
+                  </th>
+                  <th className={`${thBase} border-r border-slate-200`}>
+                    Số kết quả
+                  </th>
+                  <th className={`${thBase}`}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white">
+                {loading && byQuery.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={colCount}
+                      className="px-4 py-12 text-center text-sm text-slate-500"
+                    >
+                      Đang tìm…
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                ) : byQuery.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={colCount}
+                      className="px-4 py-12 text-center text-sm text-slate-500"
+                    >
+                      {error
+                        ? '—'
+                        : lastSearchAttempted
+                          ? 'Không có kết quả.'
+                          : 'Chưa có kết quả. Nhập query và bấm Search.'}
+                    </td>
+                  </tr>
+                ) : (
+                  byQuery.map((run, i) => {
+                    const top = getDisplayedTop(
+                      run,
+                      pricePeriodCode,
+                      selectedItemIdByQuery[run.query],
+                    );
+                    const hitTotal = run.totalMatched ?? run.results.length;
+                    const showMoreLink = hitTotal > 1;
+                    const moreHref = moreResultsHref(
+                      run.query,
+                      pricePeriodCode,
+                      top?.itemId,
+                    );
+                    return (
+                      <tr
+                        key={`${i}-${run.query}`}
+                        className="transition-colors hover:bg-slate-50/80"
+                      >
+                        <td
+                          className={`${tdBase} border-r border-slate-100 font-medium tabular-nums text-slate-500`}
+                        >
+                          {i + 1}
+                        </td>
+                        <td
+                          className={`${tdBase} max-w-[min(100vw,28rem)] border-r border-slate-100`}
+                        >
+                          <span className="break-words font-mono text-[11px] leading-snug text-slate-800">
+                            {run.query}
+                          </span>
+                        </td>
+                        <td
+                          className={`${tdBase} max-w-md border-r border-slate-100 text-slate-800`}
+                        >
+                          {top ? buildShortResultSummary(top) : '—'}
+                        </td>
+                        <td
+                          className={`${tdBase} border-r border-slate-100 text-right font-mono text-sm font-semibold tabular-nums text-slate-900`}
+                        >
+                          {top
+                            ? formatTongCongForSelectedPeriod(
+                                top,
+                                pricePeriodCode,
+                              )
+                            : '—'}
+                        </td>
+                        <td
+                          className={`${tdBase} border-r border-slate-100 font-mono text-xs text-slate-600`}
+                        >
+                          {top ? dash(top.donVi) : '—'}
+                        </td>
+                        <td
+                          className={`${tdBase} border-r border-slate-100 text-xs tabular-nums text-slate-600`}
+                        >
+                          Tổng {hitTotal} kết quả
+                        </td>
+                        <td className={tdBase}>
+                          {showMoreLink ? (
+                            <Link
+                              href={moreHref}
+                              onClick={() =>
+                                writeSearchDraft({
+                                  v: 1,
+                                  queryText,
+                                  pricePeriodCode,
+                                  byQuery,
+                                  lastSearchAttempted,
+                                  selectedItemIdByQuery,
+                                })
+                              }
+                              className="font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-800"
+                            >
+                              Xem thêm
+                            </Link>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

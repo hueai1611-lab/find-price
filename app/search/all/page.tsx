@@ -16,6 +16,9 @@ type PageProps = {
   }>;
 };
 
+const thBase =
+  'sticky top-0 z-20 border-b border-slate-200 bg-slate-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-4';
+
 export default async function SearchAllResultsPage({
   searchParams,
 }: PageProps) {
@@ -30,14 +33,23 @@ export default async function SearchAllResultsPage({
 
   if (!query) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-zinc-900">
-        <p className="mb-4 text-red-800" role="alert">
-          Thiếu tham số <span className="font-mono">query</span>.
-        </p>
-        <Link href="/search" className="text-blue-700 underline">
-          ← Search
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <div
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950"
+          role="alert"
+        >
+          <p className="font-medium">Thiếu tham số query</p>
+          <p className="mt-1 text-xs text-amber-900/90">
+            Quay lại tra cứu và chạy lại từ bảng kết quả.
+          </p>
+        </div>
+        <Link
+          href="/search"
+          className="mt-6 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800"
+        >
+          ← Về Tra cứu
         </Link>
-      </div>
+      </main>
     );
   }
 
@@ -57,72 +69,88 @@ export default async function SearchAllResultsPage({
       : (defaultPick?.itemId ?? results[0]?.itemId ?? '');
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-zinc-900">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-lg font-semibold">Tất cả kết quả</h1>
-        <Link href="/search" className="text-blue-700 underline">
-          ← Search
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            Tất cả kết quả
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">
+            Cùng logic truy vấn như tra cứu chính; ưu tiên dòng có Giá Tổng lên
+            trước, giữ thứ tự trong từng nhóm.
+          </p>
+        </div>
+        <Link
+          href="/search"
+          className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+        >
+          ← Về Tra cứu
         </Link>
-      </div>
-      <p className="mb-1 font-mono text-xs text-zinc-600">
-        query: <span className="font-medium text-zinc-800">{query}</span>
-        {pricePeriodCode != null ? (
-          <>
-            {' '}
-            · pricePeriodCode:{' '}
-            <span className="font-medium text-zinc-800">{pricePeriodCode}</span>
-          </>
-        ) : null}
-      </p>
-      <p className="mb-4 text-xs text-zinc-500">
-        Cùng logic truy vấn như{' '}
-        <span className="font-mono">GET /api/search</span> — sau đó ưu tiên các
-        dòng có Giá Tổng (tongCong) lên trước, giữ nguyên thứ tự tương đối trong
-        từng nhóm.
-      </p>
+      </header>
 
-      <div className="max-h-[70vh] overflow-auto border border-zinc-300 bg-white">
-        <table className="w-full min-w-[56rem] border-separate border-spacing-0 text-left text-sm">
-          <thead>
-            <tr>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                STT
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Tóm tắt
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Tổng cộng
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Đơn vị
-              </th>
-              <th className="sticky top-0 z-20 border-b border-r border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Dòng nguồn
-              </th>
-              <th className="sticky top-0 z-20 border-b border-zinc-200 bg-zinc-100 px-2 py-2 text-left font-medium text-zinc-800 shadow-[0_1px_0_0_theme(colors.zinc.300)]">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-2 py-6 text-center text-zinc-500">
-                  Không có kết quả.
-                </td>
-              </tr>
-            ) : (
-              <SearchAllResultsTable
-                results={results}
-                query={query}
-                pricePeriodCode={pricePeriodCode ?? ''}
-                initialSelectedItemId={initialSelectedItemId}
-              />
-            )}
-          </tbody>
-        </table>
+      <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs text-slate-700">
+        <p className="font-mono text-[11px] leading-relaxed text-slate-600">
+          <span className="font-semibold text-slate-700">query:</span> {query}
+          {pricePeriodCode != null ? (
+            <>
+              {' '}
+              <span className="text-slate-400">·</span>{' '}
+              <span className="font-semibold text-slate-700">
+                pricePeriodCode:
+              </span>{' '}
+              {pricePeriodCode}
+            </>
+          ) : null}
+        </p>
       </div>
-    </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/5">
+        <div className="max-h-[min(75vh,640px)] overflow-auto">
+          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+            <thead>
+              <tr>
+                <th className={`${thBase} w-12 border-r border-slate-200`}>
+                  STT
+                </th>
+                <th className={`${thBase} border-r border-slate-200`}>
+                  Tóm tắt
+                </th>
+                <th
+                  className={`${thBase} border-r border-slate-200 text-right`}
+                >
+                  Tổng cộng
+                </th>
+                <th className={`${thBase} border-r border-slate-200`}>
+                  Đơn vị
+                </th>
+                <th className={`${thBase} border-r border-slate-200`}>
+                  Dòng nguồn
+                </th>
+                <th className={thBase}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-12 text-center text-sm text-slate-500"
+                  >
+                    Không có kết quả.
+                  </td>
+                </tr>
+              ) : (
+                <SearchAllResultsTable
+                  results={results}
+                  query={query}
+                  pricePeriodCode={pricePeriodCode ?? ''}
+                  initialSelectedItemId={initialSelectedItemId}
+                />
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   );
 }

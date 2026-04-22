@@ -9,11 +9,14 @@ type Settings = {
   takeDiameterRescue: number;
 };
 
+const inputClass =
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20';
+
 export default function SearchRetrievalSettingsPage() {
   const [values, setValues] = useState<Settings>({
-    takePrimarySimple: 20,
-    takePrimaryTechnical: 250,
-    takeDiameterRescue: 400,
+    takePrimaryTechnical: 350,
+    takePrimarySimple: 50,
+    takeDiameterRescue: 800,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,37 +94,44 @@ export default function SearchRetrievalSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8 text-sm text-zinc-900">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-lg font-semibold">Cài đặt — Search retrieval</h1>
-        <Link href="/search" className="text-blue-700 underline">
-          ← Search
+    <main className="mx-auto max-w-lg px-4 py-8 sm:px-6 sm:py-10">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Cài đặt retrieval
+        </h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Giới hạn <span className="font-mono text-slate-700">take</span> trong{' '}
+          <span className="font-mono text-xs text-slate-600">
+            search-service.ts
+          </span>
+          : truy vấn chính và nhánh cứu diameter.
+        </p>
+        <Link
+          href="/search"
+          className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800"
+        >
+          ← Về Tra cứu
         </Link>
-      </div>
-      <p className="mb-4 text-xs text-zinc-600">
-        Ba giới hạn <span className="font-mono">take</span> trong{' '}
-        <span className="font-mono">lib/search/search-service.ts</span>: truy
-        vấn chính (có / không technical pass) và nhánh cứu diameter.
-      </p>
+      </header>
 
       {loading ? (
-        <p className="text-zinc-500">Đang tải…</p>
+        <p className="text-sm text-slate-500">Đang tải…</p>
       ) : (
         <form
           onSubmit={onSubmit}
-          className="flex flex-col gap-4 border border-zinc-300 bg-zinc-50 p-4"
+          className="flex flex-col gap-5 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-6"
         >
-          <label className="flex flex-col gap-1">
-            <span className="font-medium text-zinc-800">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-slate-800">
               takePrimarySimple{' '}
-              <span className="font-normal text-zinc-500">
+              <span className="font-normal text-slate-500">
                 (needsTechnicalPass === false)
               </span>
             </span>
             <input
               type="number"
               min={1}
-              max={10000}
+              max={500000}
               required
               value={values.takePrimarySimple}
               onChange={(e) =>
@@ -130,20 +140,20 @@ export default function SearchRetrievalSettingsPage() {
                   takePrimarySimple: Number(e.target.value) || 0,
                 }))
               }
-              className="border border-zinc-300 bg-white px-2 py-1.5 font-mono text-xs"
+              className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1">
-            <span className="font-medium text-zinc-800">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-slate-800">
               takePrimaryTechnical{' '}
-              <span className="font-normal text-zinc-500">
+              <span className="font-normal text-slate-500">
                 (needsTechnicalPass === true)
               </span>
             </span>
             <input
               type="number"
               min={1}
-              max={10000}
+              max={500000}
               required
               value={values.takePrimaryTechnical}
               onChange={(e) =>
@@ -152,17 +162,17 @@ export default function SearchRetrievalSettingsPage() {
                   takePrimaryTechnical: Number(e.target.value) || 0,
                 }))
               }
-              className="border border-zinc-300 bg-white px-2 py-1.5 font-mono text-xs"
+              className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1">
-            <span className="font-medium text-zinc-800">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-slate-800">
               takeDiameterRescue
             </span>
             <input
               type="number"
               min={1}
-              max={10000}
+              max={500000}
               required
               value={values.takeDiameterRescue}
               onChange={(e) =>
@@ -171,13 +181,13 @@ export default function SearchRetrievalSettingsPage() {
                   takeDiameterRescue: Number(e.target.value) || 0,
                 }))
               }
-              className="border border-zinc-300 bg-white px-2 py-1.5 font-mono text-xs"
+              className={inputClass}
             />
           </label>
           <button
             type="submit"
             disabled={saving}
-            className="w-fit border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-50"
+            className="inline-flex w-fit items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-50"
           >
             {saving ? 'Đang lưu…' : 'Lưu'}
           </button>
@@ -185,15 +195,21 @@ export default function SearchRetrievalSettingsPage() {
       )}
 
       {message ? (
-        <p className="mt-3 text-xs text-emerald-800" role="status">
+        <p
+          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+          role="status"
+        >
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="mt-3 text-xs text-red-800" role="alert">
+        <p
+          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
-    </div>
+    </main>
   );
 }
