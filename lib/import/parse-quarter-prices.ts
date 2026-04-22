@@ -35,3 +35,28 @@ export function parseQuarterPrices(
     ghiChu: cellText(row, group.columns.ghiChu),
   }));
 }
+
+/**
+ * Read price cells for exactly one quarter block (matches `headerMap` group code).
+ * `selectedPricePeriodCode` must equal `group.pricePeriodCode` for some group
+ * (same strings `buildHeaderMap` / `toPricePeriodCode` produce).
+ */
+export function parseSingleQuarterPriceForPeriod(
+  row: unknown[],
+  headerMap: HeaderMap,
+  selectedPricePeriodCode: string
+): ParsedQuarterPrice | null {
+  const code = selectedPricePeriodCode.trim();
+  const group = headerMap.quarterGroups.find((g) => g.pricePeriodCode === code);
+  if (!group) return null;
+
+  return {
+    pricePeriodCode: code,
+    pricePeriodLabel: group.pricePeriodLabel,
+    vatTu: cellText(row, group.columns.vatTu),
+    thiCong: cellText(row, group.columns.thiCong),
+    tongCong: cellText(row, group.columns.tongCong),
+    linkHdThamKhao: cellText(row, group.columns.linkHdThamKhao),
+    ghiChu: cellText(row, group.columns.ghiChu),
+  };
+}

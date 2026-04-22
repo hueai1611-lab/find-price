@@ -203,7 +203,12 @@ export async function searchItems(
   };
 
   const latestBatch = await prisma.importBatch.findFirst({
-    where: { completedAt: { not: null } },
+    where: {
+      completedAt: { not: null },
+      ...(periodFilter && selectedPricePeriodCode
+        ? { pricePeriodCode: selectedPricePeriodCode.trim() }
+        : {}),
+    },
     orderBy: [{ completedAt: "desc" }, { id: "desc" }],
     select: { id: true },
   });
@@ -344,6 +349,8 @@ export async function searchItems(
       nhomCongTac: item.nhomCongTac,
       quyCachKyThuat: item.quyCachKyThuat,
       noiDungTongHop: buildNoiDungTongHop(item),
+      normalizedPrimarySearchText: item.normalizedPrimarySearchText ?? null,
+      normalizedSearchText: item.normalizedSearchText ?? null,
       donVi: item.donVi,
       pricePeriodCode: selectedPrice?.pricePeriodCode ?? null,
       pricePeriodLabel: selectedPrice?.pricePeriodLabel ?? null,

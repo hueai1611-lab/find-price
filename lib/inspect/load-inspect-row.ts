@@ -45,7 +45,7 @@ function formatWorkbookNotFoundMessage(p: {
 }): string {
   const effectiveRoot = p.sourceEnvRaw
     ? `SOURCE_XLSX_ROOT set → effective root ${p.root}`
-    : `SOURCE_XLSX_ROOT unset → effective root = process.cwd() = ${p.root}`;
+    : `SOURCE_XLSX_ROOT unset → default Excel root (project data/) = ${p.root}`;
 
   return [
     "Workbook file not found on disk (inspect preview).",
@@ -65,7 +65,7 @@ function formatWorkbookReadError(p: {
 }): string {
   const effectiveRoot = p.sourceEnvRaw
     ? `SOURCE_XLSX_ROOT set → effective root ${p.root}`
-    : `SOURCE_XLSX_ROOT unset → effective root = process.cwd() = ${p.root}`;
+    : `SOURCE_XLSX_ROOT unset → default Excel root (project data/) = ${p.root}`;
 
   return [
     "Could not read workbook bytes (inspect preview).",

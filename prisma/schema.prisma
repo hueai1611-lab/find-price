@@ -10,6 +10,9 @@ model ImportBatch {
   id                     String           @id @default(cuid())
   fileName               String
   versionLabel           String?
+  /// Quarter this file was imported as (one quarter per file), e.g. Q2_2026.
+  pricePeriodCode        String?
+  pricePeriodLabel       String?
   status                 String
   sheetNames             Json?
   headerRowRange         String?

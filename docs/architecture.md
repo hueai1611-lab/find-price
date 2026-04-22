@@ -8,6 +8,8 @@ The architecture is intentionally designed to be practical and maintainable for 
 
 The system should be built as a search-first business application, not as an AI-first architecture.
 
+**BOQ search intent (current direction):** primary fields **`nhomCongTac`**, **`noiDungCongViec`**, **`quyCachKyThuat`**; **`yeuCauKhac`** is **secondary** (retrieval prefers **`normalizedPrimarySearchText`**, with **`normalizedSearchText`** as fallback).
+
 Because the real Excel source contains:
 - multi-row headers
 - repeated quarter-based pricing groups
@@ -91,15 +93,15 @@ Excel file
 -> classify row type  
 -> create `boq_items`  
 -> create `boq_item_prices` per quarter  
--> generate search text  
+-> build **`normalizedPrimarySearchText`** (nhóm + nội dung + quy) and **`normalizedSearchText`** (broader aggregate, includes secondary fields such as `yeuCauKhac`)  
 -> store import metadata
 
 ### Search flow
 User query  
--> query normalization  
--> synonym expansion  
--> search execution against searchable BOQ items  
--> ranking  
+-> query normalization (and any synonym/fuzzy hooks **where implemented**)  
+-> lexical retrieval on **`normalizedPrimarySearchText`**; **fallback** retrieval on **`normalizedSearchText`** with guards so **`yeuCauKhac`** alone cannot admit a candidate  
+-> **deterministic** ranking plus **rule-based technical** filters/scoring (e.g. `lib/search/technical-match.ts`)  
+-> search execution is against the **latest completed import batch** only  
 -> selected price period resolution  
 -> result shaping  
 -> UI response
@@ -119,7 +121,8 @@ Batch input
 
 ```txt
 app/
-  search/
+  search/           # internal search UI (+ optional /search/all for full short list)
+  inspect/row/      # internal server-side preview of Excel source row (no file://)
   batch/
   admin/
   api/
@@ -129,14 +132,13 @@ components/
 lib/
   db/
   normalize/
-  search/
+  search/           # search-service, technical-match, types, small presentation helpers
   ranking/
   import/
-  mapping/
+  inspect/          # load row, resolve workbook path (e.g. SOURCE_XLSX_ROOT)
 
 prisma/
 
-scripts/
-  import_excel/
+scripts/            # e.g. import-demo.ts, backfill-*, search-demo.ts (flat layout)
 
 docs/

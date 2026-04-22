@@ -18,6 +18,10 @@ export type SearchResult = {
   quyCachKyThuat?: string | null;
   /** Ghép nội dung + quy cách + nhóm (theo thứ tự đó), bỏ phần trống. */
   noiDungTongHop: string;
+  /** Blob tìm kiếm chính (nhóm + nội dung + quy, normalized). */
+  normalizedPrimarySearchText?: string | null;
+  /** Blob tìm kiếm tổng hợp (fallback / full row normalized). */
+  normalizedSearchText?: string | null;
   donVi?: string | null;
 
   pricePeriodCode?: string | null;

@@ -3,9 +3,8 @@ import path from "path";
 /**
  * ## `SOURCE_XLSX_ROOT` — where `/inspect/row` reads workbooks from disk
  *
- * **Dev (local):** leave `SOURCE_XLSX_ROOT` unset → this returns `process.cwd()`
- * (repo root). Same convention as `scripts/import-demo.ts` placing `.xlsx` next to
- * `package.json`.
+ * **Dev (local):** leave `SOURCE_XLSX_ROOT` unset → this returns `<cwd>/data`
+ * (same convention as `scripts/import-demo.ts`: workbooks like `data/Q2_2026.xlsx`).
  *
  * **Prod / internal server:** set `SOURCE_XLSX_ROOT` to an **absolute** directory
  * that contains files named exactly like `ImportBatch.fileName` (e.g. synced uploads).
@@ -16,5 +15,5 @@ export function getSourceXlsxRoot(): string {
   if (raw) {
     return path.resolve(raw);
   }
-  return process.cwd();
+  return path.join(process.cwd(), "data");
 }

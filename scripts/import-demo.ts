@@ -6,7 +6,8 @@
  * - Read the first sheet
  * - Use 3 header rows
  * - Parse base BOQ item fields
- * - Parse quarter price slices
+ * - Workbook under `data/<QUARTER>.xlsx` (basename stem = pricePeriodCode, e.g. Q2_2026)
+ * - Parse price cells for that quarter only (other quarter blocks in the sheet are ignored)
  * - Persist up to N valid item rows (scan past section/subgroup rows until quota)
  *
  * Phase 1 rules:
@@ -20,10 +21,12 @@
  * 5) Log row-level failures, do not abort the whole batch
  */
 
+import * as fs from "fs";
 import * as XLSX from "xlsx";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db/prisma";
 import { buildHeaderMap } from "../lib/import/header-map";
 import {
@@ -32,7 +35,7 @@ import {
   normalizeSearchText,
 } from "../lib/import/primary-search-text";
 import { parseBaseItem } from "../lib/import/parse-base-item";
-import { parseQuarterPrices } from "../lib/import/parse-quarter-prices";
+import { parseSingleQuarterPriceForPeriod } from "../lib/import/parse-quarter-prices";
 
 /**
  * Stop after this many BoqItem rows persisted (valid items only, not raw sheet rows).
@@ -45,6 +48,51 @@ const DEMO_VALID_ITEM_LIMIT = 5000;
  * Keep false by default once import is stable.
  */
 const DEBUG_IMPORT = false;
+
+/** Must match codes produced by `lib/import/header-map` (e.g. Q2_2026, Q2_Q3_2026). */
+const PRICE_PERIOD_CODE_PATTERN = /^Q[1-4](?:_Q[1-4])?_\d{4}$/;
+
+const DATA_DIR = "data";
+
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Plain `.xlsx` name only; file is read from `data/<name>`. */
+function resolveImportWorkbookPath(): string {
+  const base = (process.env.IMPORT_XLSX_BASENAME ?? "Q2_2026.xlsx").trim();
+  if (!base || base.includes("..") || base.includes("/") || base.includes("\\")) {
+    console.error(
+      "IMPORT_XLSX_BASENAME must be a plain file name (no paths), e.g. Q2_2026.xlsx"
+    );
+    process.exit(1);
+  }
+  if (!base.toLowerCase().endsWith(".xlsx")) {
+    console.error("IMPORT_XLSX_BASENAME must end with .xlsx");
+    process.exit(1);
+  }
+  return path.join(repoRoot, DATA_DIR, base);
+}
+
+/**
+ * Quarter for this run = stem of workbook basename (e.g. data/Q2_2026.xlsx → Q2_2026).
+ * Optional `PRICE_PERIOD_CODE` must match the stem or import aborts.
+ */
+function resolvePricePeriodCodeFromWorkbookPath(filePath: string): string {
+  const stem = path.basename(filePath, path.extname(filePath));
+  if (!PRICE_PERIOD_CODE_PATTERN.test(stem)) {
+    console.error(
+      `Workbook name stem "${stem}" must match quarter code pattern (rename to e.g. Q2_2026.xlsx).`
+    );
+    process.exit(1);
+  }
+  const override = process.env.PRICE_PERIOD_CODE?.trim();
+  if (override && override !== stem) {
+    console.error(
+      `PRICE_PERIOD_CODE=${override} does not match file quarter ${stem} (remove override or rename file).`
+    );
+    process.exit(1);
+  }
+  return stem;
+}
 
 function toDecimalOrNull(value?: string | null): string | null {
   if (!value) return null;
@@ -96,13 +144,16 @@ function hasAnyQuarterValue(price: {
   );
 }
 
-const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-
 async function main() {
-  const filePath = path.join(
-    repoRoot,
-    "VH_XD31_VBLQ_Bo don gia (XD)_01.04.2026 (1).xlsx"
-  );
+  const filePath = resolveImportWorkbookPath();
+
+  if (!fs.existsSync(filePath)) {
+    console.error(`Workbook not found: ${filePath}`);
+    console.error(
+      `Place the file under ${path.join(repoRoot, DATA_DIR)}/ or set IMPORT_XLSX_BASENAME.`
+    );
+    process.exit(1);
+  }
 
   const workbook = XLSX.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
@@ -118,6 +169,22 @@ async function main() {
   const dataRows = rows.slice(3);
 
   const headerMap = buildHeaderMap(headerRows);
+
+  const pricePeriodCode = resolvePricePeriodCodeFromWorkbookPath(filePath);
+  const matchedQuarter = headerMap.quarterGroups.find(
+    (g) => g.pricePeriodCode === pricePeriodCode
+  );
+  if (!matchedQuarter) {
+    const detected = headerMap.quarterGroups
+      .map((g) => g.pricePeriodCode)
+      .join(", ");
+    console.error(
+      `No header column block matches file quarter ${pricePeriodCode}. Detected groups: [${detected || "none"}].`
+    );
+    process.exit(1);
+  }
+  const pricePeriodLabel =
+    process.env.PRICE_PERIOD_LABEL?.trim() || matchedQuarter.pricePeriodLabel;
 
   if (DEBUG_IMPORT) {
     console.log(
@@ -142,6 +209,8 @@ async function main() {
     data: {
       fileName: path.basename(filePath),
       versionLabel: "01.04.2026",
+      pricePeriodCode,
+      pricePeriodLabel,
       status: "processing",
       sheetNames: [sheetName],
       headerRowRange: "1-3",
@@ -229,7 +298,7 @@ async function main() {
           rawYeuCauKhac: base.yeuCauKhac,
           rawDonVi: base.donVi,
           rawNguoiThucHien: base.nguoiThucHien,
-          rawRowJson: base.rawRowJson as any,
+          rawRowJson: base.rawRowJson as Prisma.InputJsonValue,
 
           normalizedNhomCongTac: base.nhomCongTac?.toLowerCase() ?? null,
           normalizedNoiDungCongViec:
@@ -249,29 +318,27 @@ async function main() {
 
       importedItems++;
 
-      const prices = parseQuarterPrices(row, headerMap);
+      const p = parseSingleQuarterPriceForPeriod(row, headerMap, pricePeriodCode);
 
-      if (DEBUG_IMPORT && !loggedSampleParsedPrices) {
+      if (DEBUG_IMPORT && !loggedSampleParsedPrices && p) {
         console.log(
-          "SAMPLE PARSED PRICES",
+          "SAMPLE PARSED PRICE (single quarter)",
           sourceRowNumber,
-          JSON.stringify(prices, null, 2)
+          JSON.stringify(p, null, 2)
         );
         loggedSampleParsedPrices = true;
       }
 
-      for (const p of prices) {
-        if (!hasAnyQuarterValue(p)) continue;
-
+      if (p && hasAnyQuarterValue(p)) {
         await prisma.boqItemPrice.create({
           data: {
             boqItemId: item.id,
-            pricePeriodCode: p.pricePeriodCode,
-            pricePeriodLabel: p.pricePeriodLabel,
+            pricePeriodCode,
+            pricePeriodLabel,
 
-            vatTu: toDecimalOrNull(p.vatTu) as any,
-            thiCong: toDecimalOrNull(p.thiCong) as any,
-            tongCong: toDecimalOrNull(p.tongCong) as any,
+            vatTu: toDecimalOrNull(p.vatTu) ?? undefined,
+            thiCong: toDecimalOrNull(p.thiCong) ?? undefined,
+            tongCong: toDecimalOrNull(p.tongCong) ?? undefined,
             linkHdThamKhao: p.linkHdThamKhao ?? null,
             ghiChu: p.ghiChu ?? null,
 
@@ -301,7 +368,9 @@ async function main() {
             sourceRowNumber,
             errorCode: "ROW_IMPORT_FAILED",
             errorMessage: message,
-            rawRowJson: row as any,
+            rawRowJson: JSON.parse(
+              JSON.stringify(row)
+            ) as Prisma.InputJsonValue,
           },
         });
       } catch (logError) {

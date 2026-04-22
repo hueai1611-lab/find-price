@@ -165,6 +165,7 @@ UI routes, pages, route handlers, and app-level orchestration.
 Examples:
 
 - `/app/search` for single search UI
+- `/app/inspect/row` for **internal** source-row preview (server reads the workbook from `SOURCE_XLSX_ROOT` or repo root — do not open local `.xlsx` via `file://` or desktop Excel from the browser)
 - `/app/batch` for batch search UI
 - `/app/admin` for admin pages
 - `/app/api` for route handlers when needed
@@ -176,7 +177,8 @@ Reusable UI components only.
 Examples:
 
 - search form
-- result cards
+- result list / **table-style** layouts that emphasize **top** matches first
+- result cards (where still used)
 - score badge
 - import table
 - batch result grid
@@ -290,7 +292,9 @@ Items should eventually support fields like:
 
 - raw source fields
 - normalized text
-- search text
+- **`normalizedPrimarySearchText`** — nhóm + nội dung + quy only; this is the **preferred** retrieval blob
+- **`normalizedSearchText`** — broader aggregate; use as **fallback** retrieval only, with guards so `yeuCauKhac` alone cannot admit a row
+- search text (legacy naming where applicable)
 - derived tokens
 - group/category if available
 - import batch metadata
@@ -327,18 +331,37 @@ Phase 1 should use a practical hybrid of:
 - fuzzy matching
 - synonym expansion
 
+**Current stack (phase ~1.1)** leans on:
+
+- **Lexical** matching for retrieval and much of ranking (normalized tokens, `contains`, word-boundary style checks where implemented)
+- **Deterministic** outcomes (no LLM in the query path)
+- **Rule-based technical matching** for measurements (e.g. `N cm` vs `<=…cm` caps, `D…` / range tokens) in `lib/search/technical-match.ts` and related hooks — keep this **narrowly scoped**; do not replace the lexical core with ML
+
 Do not use embeddings in phase 1 unless explicitly asked.
 
-### Search fields
+### BOQ column priority (application search model)
 
-Search should consider multiple fields, depending on available data:
+**Primary trio — main BOQ intent for retrieval and ranking:**
 
-- tên công việc
-- spec / mô tả kỹ thuật
-- vật liệu / thương hiệu
-- đơn vị
-- ghi chú
-- nhóm công việc
+- `nhomCongTac`
+- `noiDungCongViec`
+- `quyCachKyThuat`
+
+**Secondary:**
+
+- `yeuCauKhac` — may contribute to score, but **must not** be the only basis for admitting a candidate when primary fields would reject the row (enforced in search-service fallback rules)
+
+### Stored blobs and retrieval order
+
+- **`normalizedPrimarySearchText`** — built only from nhóm + nội dung + quy (`lib/import/primary-search-text.ts` pipeline). **Prefer this** for primary retrieval (`OR` phrase / conjunctive tokens on this field first).
+- **`normalizedSearchText`** — wider joined blob. **Fallback retrieval only** when primary is too strict; token-level guards still require hits on primary columns so YCK cannot carry a row alone.
+
+### Other searchable / display fields
+
+Depending on query and row shape, relevance may still use:
+
+- đơn vị, mã hiệu, notes, and other columns present in the aggregate blob for fallback or scoring
+- tên công việc / spec language that maps into the three primary columns above
 
 ### Search behavior expectations
 
@@ -360,7 +383,7 @@ User search queries should usually be normalized through:
 - punctuation cleanup
 - Vietnamese diacritic removal or comparable normalization
 - synonym expansion
-- preserving dimension-like tokens such as `100x20mm`, `D110`, `DN100`
+- preserving dimension-like tokens such as `100x20mm`, `D110`, `DN100`, `21 cm`, `D500-D600` (see technical-match helpers for canonical forms)
 
 ---
 
@@ -595,6 +618,8 @@ When uncertain, propose options with tradeoffs instead of guessing.
 ## 19. Project-specific reminder
 
 This app is primarily a smart search and mapping tool for construction estimation workflows.
+
+**Current direction:** lexical, deterministic retrieval with **rule-based technical** gates; BOQ **primary** columns `nhomCongTac` / `noiDungCongViec` / `quyCachKyThuat` with `yeuCauKhac` secondary; **`normalizedPrimarySearchText` preferred** and **`normalizedSearchText` fallback**; inspect source rows only via **internal** routes (see **§6**, **§9**); results UI trending to **table** layouts with **top-result** emphasis.
 
 In phase 1, prioritize:
 
