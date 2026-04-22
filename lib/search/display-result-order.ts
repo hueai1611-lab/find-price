@@ -47,3 +47,21 @@ export function pickMainTableTop(
   );
   return ordered[0];
 }
+
+/**
+ * Row shown on the main Search table: explicit `selectedItemId` if it exists in `run.results`,
+ * otherwise default `pickMainTableTop`.
+ */
+export function getDisplayedTop(
+  run: { results: SearchResult[] },
+  formPricePeriodCode: string,
+  selectedItemId: string | undefined,
+): SearchResult | undefined {
+  if (run.results.length === 0) return undefined;
+  const id = selectedItemId?.trim();
+  if (id) {
+    const hit = run.results.find((r) => r.itemId === id);
+    if (hit) return hit;
+  }
+  return pickMainTableTop(run.results, formPricePeriodCode);
+}

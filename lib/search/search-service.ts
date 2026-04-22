@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { calculateScore } from "../ranking/calculate-score";
 import type { SearchResult } from "./search-types";
+import { getSearchRetrievalSettings } from "./search-retrieval-settings";
 import {
   canonicalizeTechnicalText,
   cmQueryFitsSpecCaps,
@@ -85,6 +86,7 @@ export async function searchItems(
   const queryHasCm = extractCmValuesFromQuery(queryCanon).length > 0;
   const queryHasDiameter = extractDiameterTokens(queryCanon).length > 0;
   const needsTechnicalPass = hasTechnicalTokens && lexicalTokens.length > 0;
+  const retrievalLimits = getSearchRetrievalSettings();
 
   function itemPassesTechnicalFilter(item: {
     normalizedQuyCachKyThuat: string | null;
@@ -255,7 +257,9 @@ export async function searchItems(
         orderBy: { pricePeriodCode: "asc" },
       },
     },
-    take: needsTechnicalPass ? 250 : 20,
+    take: needsTechnicalPass
+      ? retrievalLimits.takePrimaryTechnical
+      : retrievalLimits.takePrimarySimple,
   });
 
   let filteredCandidates: BoqSearchRow[] = needsTechnicalPass
@@ -297,7 +301,7 @@ export async function searchItems(
           orderBy: { pricePeriodCode: "asc" },
         },
       },
-      take: 400,
+      take: retrievalLimits.takeDiameterRescue,
     });
     const blobHasLexical = (it: (typeof extra)[number]) => {
       const blob = (it.normalizedSearchText ?? "").toLowerCase();

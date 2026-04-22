@@ -1,58 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import {
+  getDisplayedTop,
   pickMainTableTop,
   reorderSearchResultsByTongCongPresence,
 } from '@/lib/search/display-result-order';
 import { buildShortResultSummary } from '@/lib/search/result-summary';
 import type { SearchResult } from '@/lib/search/search-types';
+import {
+  type QueryRun,
+  readSearchDraft,
+  writeSearchDraft,
+} from '@/lib/search/search-draft-storage';
 
 type ApiErrorBody = { error?: string };
-
-type QueryRun = {
-  query: string;
-  results: SearchResult[];
-  /** Full ranked count from API (can exceed `results.length` when API caps at 5). */
-  totalMatched?: number;
-};
-
-/** Bumped so old drafts (no `totalMatched`) do not keep showing "Tổng 5" after API fix. */
-const SEARCH_DRAFT_KEY = 'find-price-search-draft-v2';
-
-type SearchDraftStored = {
-  v: 1;
-  queryText: string;
-  pricePeriodCode: string;
-  byQuery: QueryRun[];
-  lastSearchAttempted: boolean;
-};
-
-function readSearchDraft(): SearchDraftStored | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(SEARCH_DRAFT_KEY);
-    if (!raw) return null;
-    const d = JSON.parse(raw) as SearchDraftStored;
-    if (d.v !== 1 || typeof d.queryText !== 'string') return null;
-    if (typeof d.pricePeriodCode !== 'string') return null;
-    if (!Array.isArray(d.byQuery)) return null;
-    return d;
-  } catch {
-    return null;
-  }
-}
-
-function writeSearchDraft(draft: SearchDraftStored) {
-  if (typeof window === 'undefined') return;
-  try {
-    sessionStorage.setItem(SEARCH_DRAFT_KEY, JSON.stringify(draft));
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
 
 function dash(s: string | null | undefined) {
   const t = (s ?? '').trim();
@@ -75,6 +39,21 @@ function formatTongCongForSelectedPeriod(
   return dash(top.tongCong);
 }
 
+/** Giá để dán Excel: rỗng nếu không có số (giữ đúng số dòng). */
+function tongCongForClipboard(
+  top: SearchResult | undefined,
+  formPricePeriodCode: string,
+): string {
+  if (!top) return '';
+  const s = formatTongCongForSelectedPeriod(top, formPricePeriodCode);
+  if (s === '—' || !s.trim()) return '';
+  return s.trim();
+}
+
+function tsvCell(s: string): string {
+  return s.replace(/\t/g, ' ').replace(/\r/g, '').replace(/\n/g, ' ');
+}
+
 /** One BOQ item query per non-empty line (trimmed). */
 function parseItemQueries(text: string): string[] {
   return text
@@ -83,10 +62,16 @@ function parseItemQueries(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-function moreResultsHref(queryTrimmed: string, pricePeriodCode: string) {
+function moreResultsHref(
+  queryTrimmed: string,
+  pricePeriodCode: string,
+  selectedItemId?: string,
+) {
   const params = new URLSearchParams({ query: queryTrimmed });
   const p = pricePeriodCode.trim();
   if (p) params.set('pricePeriodCode', p);
+  const sid = selectedItemId?.trim();
+  if (sid) params.set('selectedItemId', sid);
   return `/search/all?${params.toString()}`;
 }
 
@@ -124,6 +109,56 @@ export default function SearchToolPage() {
   const [loading, setLoading] = useState(false);
   /** True after a completed submit (so we can distinguish “no search yet” vs “0 hits”). */
   const [lastSearchAttempted, setLastSearchAttempted] = useState(false);
+  const [selectedItemIdByQuery, setSelectedItemIdByQuery] = useState<
+    Record<string, string>
+  >({});
+  const [copyHint, setCopyHint] = useState<string | null>(null);
+
+  const copyGiáTổngColumn = useCallback(async () => {
+    if (byQuery.length === 0) return;
+    const lines = byQuery.map((run) => {
+      const top = getDisplayedTop(
+        run,
+        pricePeriodCode,
+        selectedItemIdByQuery[run.query],
+      );
+      return tongCongForClipboard(top, pricePeriodCode);
+    });
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyHint('Đã copy Giá Tổng (mỗi dòng một ô).');
+    } catch {
+      setCopyHint('Không copy được (trình duyệt chặn clipboard).');
+    }
+    window.setTimeout(() => setCopyHint(null), 2500);
+  }, [byQuery, pricePeriodCode, selectedItemIdByQuery]);
+
+  const copyTsvRows = useCallback(async () => {
+    if (byQuery.length === 0) return;
+    const header = ['Query', 'Tóm tắt', 'Giá Tổng', 'Đơn vị']
+      .join('\t');
+    const rows = byQuery.map((run) => {
+      const top = getDisplayedTop(
+        run,
+        pricePeriodCode,
+        selectedItemIdByQuery[run.query],
+      );
+      const q = tsvCell(run.query);
+      const summary = top ? tsvCell(buildShortResultSummary(top)) : '';
+      const price = tongCongForClipboard(top, pricePeriodCode);
+      const unit = top ? tsvCell(dash(top.donVi)) : '';
+      return [q, summary, price, unit].join('\t');
+    });
+    const text = [header, ...rows].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyHint('Đã copy TSV (có dòng tiêu đề).');
+    } catch {
+      setCopyHint('Không copy được (trình duyệt chặn clipboard).');
+    }
+    window.setTimeout(() => setCopyHint(null), 2500);
+  }, [byQuery, pricePeriodCode, selectedItemIdByQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,6 +169,7 @@ export default function SearchToolPage() {
         setQueryText(d.queryText);
         setByQuery(d.byQuery);
         setLastSearchAttempted(d.lastSearchAttempted);
+        setSelectedItemIdByQuery(d.selectedItemIdByQuery ?? {});
         /* eslint-enable react-hooks/set-state-in-effect */
       }
 
@@ -197,6 +233,7 @@ export default function SearchToolPage() {
                 pricePeriodCode: nextPeriod,
                 byQuery: filled,
                 lastSearchAttempted: d.lastSearchAttempted,
+                selectedItemIdByQuery: d.selectedItemIdByQuery,
               });
             }
           }
@@ -211,6 +248,22 @@ export default function SearchToolPage() {
     };
   }, []);
 
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState !== 'visible') return;
+      const d = readSearchDraft();
+      if (!d) return;
+      if (d.selectedItemIdByQuery) {
+        setSelectedItemIdByQuery(d.selectedItemIdByQuery);
+      }
+      if (d.byQuery.length > 0) {
+        setByQuery(d.byQuery);
+      }
+    }
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -220,6 +273,7 @@ export default function SearchToolPage() {
     const lines = parseItemQueries(queryText);
     if (lines.length === 0) {
       setByQuery([]);
+      setSelectedItemIdByQuery({});
       setError('Nhập ít nhất một dòng query (mỗi dòng = một BOQ).');
       setLastSearchAttempted(true);
       setLoading(false);
@@ -242,6 +296,7 @@ export default function SearchToolPage() {
 
         if (!res.ok) {
           setByQuery([]);
+          setSelectedItemIdByQuery({});
           setError(
             typeof data.error === 'string' ? data.error : res.statusText,
           );
@@ -260,13 +315,20 @@ export default function SearchToolPage() {
             totalMatched,
           },
         ];
+        const sel: Record<string, string> = {};
+        for (const run of next) {
+          const t = pickMainTableTop(run.results, pricePeriodCode);
+          if (t) sel[run.query] = t.itemId;
+        }
         setByQuery(next);
+        setSelectedItemIdByQuery(sel);
         writeSearchDraft({
           v: 1,
           queryText,
           pricePeriodCode,
           byQuery: next,
           lastSearchAttempted: true,
+          selectedItemIdByQuery: sel,
         });
         return;
       }
@@ -284,6 +346,7 @@ export default function SearchToolPage() {
 
       if (!res.ok) {
         setByQuery([]);
+        setSelectedItemIdByQuery({});
         setError(typeof data.error === 'string' ? data.error : res.statusText);
         return;
       }
@@ -306,16 +369,24 @@ export default function SearchToolPage() {
           totalMatched,
         };
       });
+      const sel: Record<string, string> = {};
+      for (const run of next) {
+        const t = pickMainTableTop(run.results, pricePeriodCode);
+        if (t) sel[run.query] = t.itemId;
+      }
       setByQuery(next);
+      setSelectedItemIdByQuery(sel);
       writeSearchDraft({
         v: 1,
         queryText,
         pricePeriodCode,
         byQuery: next,
         lastSearchAttempted: true,
+        selectedItemIdByQuery: sel,
       });
     } catch {
       setByQuery([]);
+      setSelectedItemIdByQuery({});
       setError('Request failed');
     } finally {
       setLoading(false);
@@ -327,7 +398,15 @@ export default function SearchToolPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-zinc-900">
-      <h1 className="mb-6 text-lg font-semibold">Search</h1>
+      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-lg font-semibold">Search</h1>
+        <Link
+          href="/settings/search"
+          className="text-xs text-blue-700 underline decoration-blue-600/60"
+        >
+          Cài đặt retrieval (take)
+        </Link>
+      </div>
 
       <form
         onSubmit={onSubmit}
@@ -363,6 +442,7 @@ export default function SearchToolPage() {
               const v = e.target.value;
               setPricePeriodCode(v);
               setByQuery([]);
+              setSelectedItemIdByQuery({});
               setError(null);
               setLastSearchAttempted(false);
               writeSearchDraft({
@@ -371,6 +451,7 @@ export default function SearchToolPage() {
                 pricePeriodCode: v,
                 byQuery: [],
                 lastSearchAttempted: false,
+                selectedItemIdByQuery: {},
               });
             }}
             className="max-w-xs border border-zinc-300 bg-white px-2 py-1.5"
@@ -413,6 +494,30 @@ export default function SearchToolPage() {
         thêm&quot; chỉ hiện khi dòng đó có trên 1 kết quả; cùng tab, quay lại
         Search giữ nguyên nội dung đã nhập.
       </p>
+
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={byQuery.length === 0}
+          onClick={() => void copyGiáTổngColumn()}
+          className="border border-zinc-400 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-100 disabled:opacity-40"
+        >
+          Copy Giá Tổng
+        </button>
+        <button
+          type="button"
+          disabled={byQuery.length === 0}
+          onClick={() => void copyTsvRows()}
+          className="border border-zinc-400 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-100 disabled:opacity-40"
+        >
+          Copy TSV
+        </button>
+        {copyHint ? (
+          <span className="text-xs text-zinc-600" role="status">
+            {copyHint}
+          </span>
+        ) : null}
+      </div>
 
       <div className="max-h-[70vh] overflow-auto border border-zinc-300 bg-white">
         <table className="w-full min-w-[90%] border-separate border-spacing-0 text-left text-sm">
@@ -466,10 +571,18 @@ export default function SearchToolPage() {
               </tr>
             ) : (
               byQuery.map((run, i) => {
-                const top = pickMainTableTop(run.results, pricePeriodCode);
+                const top = getDisplayedTop(
+                  run,
+                  pricePeriodCode,
+                  selectedItemIdByQuery[run.query],
+                );
                 const hitTotal = run.totalMatched ?? run.results.length;
                 const showMoreLink = hitTotal > 1;
-                const moreHref = moreResultsHref(run.query, pricePeriodCode);
+                const moreHref = moreResultsHref(
+                  run.query,
+                  pricePeriodCode,
+                  top?.itemId,
+                );
                 return (
                   <tr key={`${i}-${run.query}`} className="align-top">
                     <td className="border-r border-zinc-100 px-2 py-2 tabular-nums text-zinc-700">
@@ -507,6 +620,7 @@ export default function SearchToolPage() {
                               pricePeriodCode,
                               byQuery,
                               lastSearchAttempted,
+                              selectedItemIdByQuery,
                             })
                           }
                           className="text-blue-700 underline decoration-blue-600/60 hover:decoration-blue-700"
