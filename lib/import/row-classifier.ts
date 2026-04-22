@@ -5,6 +5,18 @@ function cell(row: unknown[], index?: number): string {
   return String(row[index] ?? "").trim();
 }
 
+function isSectionStt(stt: string): boolean {
+  return /^TC\.\d+$/i.test(stt);
+}
+
+function isSubgroupStt(stt: string): boolean {
+  return /^\d+\.\d+$/.test(stt);
+}
+
+function isItemStt(stt: string): boolean {
+  return /^\d+$/.test(stt);
+}
+
 export function classifyRow(
   row: unknown[],
   sttIndex?: number,
@@ -15,10 +27,13 @@ export function classifyRow(
 
   if (!stt && !noiDung) return "empty";
 
-  if (/^TC\.\d+/i.test(stt)) return "section";
-  if (/^\d+\.\d+/.test(stt)) return "subgroup";
+  if (isSectionStt(stt)) return "section";
+  if (isSubgroupStt(stt)) return "subgroup";
 
-  if (noiDung || /^\d+$/.test(stt)) return "item";
+  // Phase 1 assumption:
+  // a row with work content is treated as an item,
+  // and a plain numeric STT is also treated as an item.
+  if (noiDung || isItemStt(stt)) return "item";
 
   return "empty";
 }
@@ -32,11 +47,11 @@ export function extractHierarchyCodes(
 } {
   const stt = cell(row, sttIndex);
 
-  if (/^TC\.\d+/i.test(stt)) {
+  if (isSectionStt(stt)) {
     return { sectionCode: stt };
   }
 
-  if (/^\d+\.\d+/.test(stt)) {
+  if (isSubgroupStt(stt)) {
     return { subgroupCode: stt };
   }
 
