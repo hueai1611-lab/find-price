@@ -1,5 +1,10 @@
 export type SearchResult = {
   itemId: string;
+  importBatchId: string;
+  sourceFileName: string;
+  sheetName: string;
+  sourceRowNumber: number | null;
+
   score: number;
   confidenceLabel: "Exact Match" | "Strong Match" | "Near Match" | "Related Match";
 

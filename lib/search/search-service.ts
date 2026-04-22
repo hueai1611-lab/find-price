@@ -17,18 +17,39 @@ export async function searchItems(
   selectedPricePeriodCode?: string
 ): Promise<SearchResult[]> {
   const normalizedQuery = normalizeQuery(query);
+  const periodFilter = Boolean(selectedPricePeriodCode);
+
+  const latestBatch = await prisma.importBatch.findFirst({
+    where: { completedAt: { not: null } },
+    orderBy: [{ completedAt: "desc" }, { id: "desc" }],
+    select: { id: true },
+  });
+
+  if (!latestBatch) {
+    return [];
+  }
 
   const candidates = await prisma.boqItem.findMany({
     where: {
+      importBatchId: latestBatch.id,
       isActive: true,
       isSearchable: true,
       normalizedSearchText: {
         contains: normalizedQuery,
         mode: "insensitive",
       },
+      ...(periodFilter
+        ? {
+            prices: {
+              some: { pricePeriodCode: selectedPricePeriodCode },
+            },
+          }
+        : {}),
     },
     include: {
-      prices: true,
+      prices: {
+        orderBy: { pricePeriodCode: "asc" },
+      },
     },
     take: 20,
   });
@@ -41,12 +62,17 @@ export async function searchItems(
       normalizedQuyCachKyThuat: item.normalizedQuyCachKyThuat,
     });
 
-    const selectedPrice =
-      item.prices.find((p) => p.pricePeriodCode === selectedPricePeriodCode) ??
-      item.prices[0];
+    // No period: first row = lexicographically smallest pricePeriodCode (deterministic).
+    const selectedPrice = periodFilter
+      ? item.prices.find((p) => p.pricePeriodCode === selectedPricePeriodCode)
+      : item.prices[0];
 
     return {
       itemId: item.id,
+      importBatchId: item.importBatchId,
+      sourceFileName: item.sourceFileName,
+      sheetName: item.sheetName,
+      sourceRowNumber: item.sourceRowNumber ?? null,
       score: ranking.score,
       confidenceLabel: ranking.confidenceLabel,
       stt: item.stt,
