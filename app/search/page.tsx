@@ -84,11 +84,26 @@ function moreResultsHref(queryTrimmed: string, pricePeriodCode: string) {
   return `/search/all?${params.toString()}`;
 }
 
+function resolvePeriodAfterLoad(
+  draftPeriod: string | undefined,
+  periods: string[],
+): string {
+  if (draftPeriod !== undefined) {
+    const t = draftPeriod.trim();
+    if (t === '') return '';
+    if (periods.includes(t)) return t;
+    return periods[0] ?? '';
+  }
+  if (periods.includes('Q2_2026')) return 'Q2_2026';
+  return periods[0] ?? '';
+}
+
 export default function SearchToolPage() {
   /** Same defaults on server + client first paint (sessionStorage only after mount). */
   const [queryText, setQueryText] = useState('');
-  /** Default Q2 so the first search matches typical demo / JSON with Q2_2026. */
-  const [pricePeriodCode, setPricePeriodCode] = useState('Q2_2026');
+  /** Filled after mount from draft + /api/search/price-periods (SSR stays empty string). */
+  const [pricePeriodCode, setPricePeriodCode] = useState('');
+  const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
   const [byQuery, setByQuery] = useState<QueryRun[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,15 +111,42 @@ export default function SearchToolPage() {
   const [lastSearchAttempted, setLastSearchAttempted] = useState(false);
 
   useEffect(() => {
-    const d = readSearchDraft();
-    if (!d) return;
-    /* Restore draft only in the browser after paint so SSR HTML matches the client's first paint (avoids hydration errors). */
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setQueryText(d.queryText);
-    setPricePeriodCode(d.pricePeriodCode);
-    setByQuery(d.byQuery);
-    setLastSearchAttempted(d.lastSearchAttempted);
-    /* eslint-enable react-hooks/set-state-in-effect */
+    let cancelled = false;
+    (async () => {
+      const d = readSearchDraft();
+      if (!cancelled && d) {
+        /* eslint-disable react-hooks/set-state-in-effect */
+        setQueryText(d.queryText);
+        setByQuery(d.byQuery);
+        setLastSearchAttempted(d.lastSearchAttempted);
+        /* eslint-enable react-hooks/set-state-in-effect */
+      }
+
+      let periods: string[] = [];
+      try {
+        const res = await fetch('/api/search/price-periods', {
+          cache: 'no-store',
+        });
+        const data: { pricePeriodCodes?: unknown } = await res.json();
+        if (Array.isArray(data.pricePeriodCodes)) {
+          periods = data.pricePeriodCodes.filter(
+            (x): x is string => typeof x === 'string' && x.trim().length > 0,
+          );
+        }
+      } catch {
+        /* keep periods = [] */
+      }
+
+      if (cancelled) return;
+      setAvailablePeriods(periods);
+      const nextPeriod = resolvePeriodAfterLoad(d?.pricePeriodCode, periods);
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setPricePeriodCode(nextPeriod);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function onSubmit(e: FormEvent) {
@@ -146,7 +188,10 @@ export default function SearchToolPage() {
         const next: QueryRun[] = [
           {
             query: lines[0],
-            results: reorderSearchResultsByTongCongPresence(raw, pricePeriodCode),
+            results: reorderSearchResultsByTongCongPresence(
+              raw,
+              pricePeriodCode,
+            ),
           },
         ];
         setByQuery(next);
@@ -255,14 +300,15 @@ export default function SearchToolPage() {
             className="max-w-xs border border-zinc-300 bg-white px-2 py-1.5"
           >
             <option value="">Omit param (server uses first price row)</option>
-            <option value="Q1_2026">Q1_2026</option>
-            <option value="Q2_2026">Q2_2026</option>
-            <option value="Q3_2026">Q3_2026</option>
-            <option value="Q4_2026">Q4_2026</option>
+            {availablePeriods.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
           </select>
           <span className="text-xs text-zinc-500">
-            Đổi kỳ sẽ xóa bảng kết quả — bấm Search lại để lấy giá đúng kỳ.
-            Mặc định Q2_2026 trừ khi chọn &quot;Omit param&quot;.
+            Danh sách kỳ lấy từ các import đã hoàn thành (tên file / batch). Đổi
+            kỳ sẽ xóa bảng kết quả — bấm Search lại để lấy giá đúng kỳ.
           </span>
         </label>
 
