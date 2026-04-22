@@ -8,11 +8,17 @@ import { searchItems } from "../lib/search/search-service";
 type Run = { query: string; selectedPricePeriodCode?: string };
 
 const RUNS: Run[] = [
-  { query: "vệ sinh cống" },
-  { query: "phát cỏ" },
-  { query: "đào đất" },
-  { query: "bơm nước" },
-  { query: "phá dỡ", selectedPricePeriodCode: "Q2_2026" },
+  // { query: "vệ sinh cống" },
+  // { query: "phát cỏ" },
+  // { query: "đào đất" },
+  // { query: "bơm nước" },
+  // { query: "phá dỡ", selectedPricePeriodCode: "Q2_2026" },
+  // { query: "phá dỡ gốc cây <=20cm", selectedPricePeriodCode: "Q2_2026" },
+  // { query: "phá dỡ gốc cây 21 cm", selectedPricePeriodCode: "Q2_2026" },
+  // { query: "khoan cấy thép D10", selectedPricePeriodCode: "Q2_2026" },
+  { query: "Chặt cây ở địa hình bằng phẳng bằng máy cưa", selectedPricePeriodCode: "Q2_2026" },
+  // { query: "Phát quang và chặt cây bụi", selectedPricePeriodCode: "Q2_2026" },
+  
 ];
 
 async function main() {

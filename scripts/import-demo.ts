@@ -26,17 +26,25 @@ import { fileURLToPath } from "url";
 
 import { prisma } from "../lib/db/prisma";
 import { buildHeaderMap } from "../lib/import/header-map";
+import {
+  buildNormalizedPrimarySearchText,
+  buildSearchText,
+  normalizeSearchText,
+} from "../lib/import/primary-search-text";
 import { parseBaseItem } from "../lib/import/parse-base-item";
 import { parseQuarterPrices } from "../lib/import/parse-quarter-prices";
 
-/** Stop after this many BoqItem rows persisted (valid items only, not raw sheet rows). */
-const DEMO_VALID_ITEM_LIMIT = 20;
+/**
+ * Stop after this many BoqItem rows persisted (valid items only, not raw sheet rows).
+ * Keep high enough that later sheet sections (e.g. khoan cấy thép, phụ kiện D10) are indexed.
+ */
+const DEMO_VALID_ITEM_LIMIT = 5000;
 
 /**
  * Toggle focused debug output.
  * Keep false by default once import is stable.
  */
-const DEBUG_IMPORT = true;
+const DEBUG_IMPORT = false;
 
 function toDecimalOrNull(value?: string | null): string | null {
   if (!value) return null;
@@ -52,20 +60,6 @@ function toDecimalOrNull(value?: string | null): string | null {
   if (Number.isNaN(parsed)) return null;
 
   return parsed.toFixed(2);
-}
-
-function buildSearchText(parts: Array<string | null | undefined>): string {
-  return parts.filter(Boolean).join(" ").trim();
-}
-
-function normalizeSearchText(input: string): string {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** Legend / numbering cells (column markers), not real work descriptions. */
@@ -187,6 +181,8 @@ async function main() {
         loggedSamplePriceCells = true;
       }
 
+      const normalizedPrimarySearchText = buildNormalizedPrimarySearchText(base);
+
       const searchText = buildSearchText([
         base.nhomCongTac,
         base.noiDungCongViec,
@@ -247,6 +243,7 @@ async function main() {
 
           searchText,
           normalizedSearchText,
+          normalizedPrimarySearchText,
         },
       });
 

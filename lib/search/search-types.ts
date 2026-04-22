@@ -16,6 +16,8 @@ export type SearchResult = {
   noiDungCongViec?: string | null;
   nhomCongTac?: string | null;
   quyCachKyThuat?: string | null;
+  /** Ghép nội dung + quy cách + nhóm (theo thứ tự đó), bỏ phần trống. */
+  noiDungTongHop: string;
   donVi?: string | null;
 
   pricePeriodCode?: string | null;

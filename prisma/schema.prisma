@@ -76,6 +76,9 @@ model BoqItem {
 
   searchText                String
   normalizedSearchText      String
+  /// Nhóm + nội dung + quy cách only (same normalizeSearchText as full blob prefix).
+  normalizedPrimarySearchText String @default("")
+
   keywordTokens             Json?
   dimensionTokens           Json?
   brandTokens               Json?

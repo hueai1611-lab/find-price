@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import type { SearchResult } from "@/lib/search/search-types";
 
@@ -12,7 +13,8 @@ function dash(s: string | null | undefined) {
 
 export default function SearchToolPage() {
   const [query, setQuery] = useState("");
-  const [pricePeriodCode, setPricePeriodCode] = useState("");
+  /** Default Q2 so the first search matches typical demo / JSON with Q2_2026. */
+  const [pricePeriodCode, setPricePeriodCode] = useState("Q2_2026");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,9 @@ export default function SearchToolPage() {
       const p = pricePeriodCode.trim();
       if (p) params.set("pricePeriodCode", p);
 
-      const res = await fetch(`/api/search?${params.toString()}`);
+      const res = await fetch(`/api/search?${params.toString()}`, {
+        cache: "no-store",
+      });
       const data: { results?: SearchResult[] } & ApiErrorBody = await res.json();
 
       if (!res.ok) {
@@ -67,12 +71,18 @@ export default function SearchToolPage() {
             onChange={(e) => setPricePeriodCode(e.target.value)}
             className="max-w-xs border border-zinc-300 bg-white px-2 py-1.5"
           >
-            <option value="">—</option>
+            <option value="">
+              Omit param (server uses first price row)
+            </option>
             <option value="Q1_2026">Q1_2026</option>
             <option value="Q2_2026">Q2_2026</option>
             <option value="Q3_2026">Q3_2026</option>
             <option value="Q4_2026">Q4_2026</option>
           </select>
+          <span className="text-xs text-zinc-500">
+            Default Q2_2026 — request always includes the code unless you pick the
+            first option.
+          </span>
         </label>
 
         <button
@@ -95,8 +105,26 @@ export default function SearchToolPage() {
         {results.map((r) => (
           <li key={r.itemId} className="border border-zinc-300 bg-white p-3 font-mono text-xs text-zinc-800">
             <div className="mb-1 text-zinc-500">{dash(r.confidenceLabel)}</div>
+            <div className="mb-2 font-sans text-[10px] font-normal leading-snug text-zinc-400">
+              <Link
+                href={`/inspect/row?itemId=${encodeURIComponent(r.itemId)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-700 underline decoration-blue-600/60 hover:decoration-blue-700"
+              >
+                Row: {r.sourceRowNumber ?? "—"} · Sheet: {dash(r.sheetName)} · Batch:{" "}
+                <span className="break-all">{dash(r.importBatchId)}</span>
+              </Link>
+            </div>
+            <div className="mb-2 font-sans text-[11px] leading-snug text-zinc-800">
+              <span className="text-zinc-500">noiDungTongHop</span>{" "}
+              {r.noiDungTongHop.trim() ? r.noiDungTongHop : "—"}
+            </div>
             <div>
               <span className="text-zinc-500">noiDungCongViec</span> {dash(r.noiDungCongViec)}
+            </div>
+            <div>
+              <span className="text-zinc-500">quyCachKyThuat</span> {dash(r.quyCachKyThuat)}
             </div>
             <div>
               <span className="text-zinc-500">nhomCongTac</span> {dash(r.nhomCongTac)}
