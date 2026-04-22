@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/db/prisma';
 
+/** Matches `select: { pricePeriodCode: true }` on `ImportBatch`. */
+type PricePeriodCodeRow = { pricePeriodCode: string | null };
+
 /**
  * Distinct quarter codes from completed imports (one file = one batch row with period).
  * Legacy batches with null `pricePeriodCode` are omitted.
@@ -17,7 +20,7 @@ export async function GET() {
     orderBy: { pricePeriodCode: 'asc' },
   });
 
-  const pricePeriodCodes = rows
+  const pricePeriodCodes = (rows as unknown as PricePeriodCodeRow[])
     .map((r) => r.pricePeriodCode)
     .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
 
