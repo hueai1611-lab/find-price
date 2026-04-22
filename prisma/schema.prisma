@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ImportBatch {
+  id                     String           @id @default(cuid())
+  fileName               String
+  versionLabel           String?
+  status                 String
+  sheetNames             Json?
+  headerRowRange         String?
+  totalRowsDetected      Int?
+  totalRowsImported      Int?
+  totalRowsFailed        Int?
+  totalItemsCreated      Int?
+  totalItemPricesCreated Int?
+  errorSummary           String?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  createdAt              DateTime         @default(now())
+
+  boqItems               BoqItem[]
+  importRowErrors        ImportRowError[]
+
+  @@map("import_batches")
+}
+
+model BoqItem {
+  id                        String         @id @default(cuid())
+  importBatchId             String
+  sourceFileName            String
+  sheetName                 String
+  sourceRowNumber           Int?
+  versionLabel              String?
+
+  stt                       String?
+  ctxd                      String?
+  maHieuHsmt                String?
+  maHieuKsg                 String?
+  nhomCongTac               String?
+  noiDungCongViec           String?
+  quyCachKyThuat            String?
+  yeuCauKhac                String?
+  donVi                     String?
+  nguoiThucHien             String?
+
+  rowType                   String
+  sectionCode               String?
+  subgroupCode              String?
+  parentLabel               String?
+  isSearchable              Boolean        @default(true)
+
+  rawStt                    String?
+  rawCtxd                   String?
+  rawMaHieuHsmt             String?
+  rawMaHieuKsg              String?
+  rawNhomCongTac            String?
+  rawNoiDungCongViec        String?
+  rawQuyCachKyThuat         String?
+  rawYeuCauKhac             String?
+  rawDonVi                  String?
+  rawNguoiThucHien          String?
+  rawRowJson                Json?
+
+  normalizedNhomCongTac     String?
+  normalizedNoiDungCongViec String?
+  normalizedQuyCachKyThuat  String?
+  normalizedYeuCauKhac      String?
+  normalizedDonVi           String?
+  normalizedMaHieuHsmt      String?
+  normalizedMaHieuKsg       String?
+
+  searchText                String
+  normalizedSearchText      String
+  keywordTokens             Json?
+  dimensionTokens           Json?
+  brandTokens               Json?
+  codeTokens                Json?
+
+  isActive                  Boolean        @default(true)
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+
+  importBatch               ImportBatch    @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  prices                    BoqItemPrice[]
+  topResultInLogs           SearchLog[]    @relation("TopResultItem")
+  feedbackItems             UserFeedback[] @relation("SelectedItemFeedback")
+
+  @@index([importBatchId])
+  @@index([rowType])
+  @@index([isSearchable])
+  @@index([isActive])
+  @@index([ctxd])
+  @@index([maHieuHsmt])
+  @@index([maHieuKsg])
+  @@map("boq_items")
+}
+
+model BoqItemPrice {
+  id                String         @id @default(cuid())
+  boqItemId         String
+  pricePeriodCode   String
+  pricePeriodLabel  String
+
+  vatTu             Decimal?       @db.Decimal(18, 2)
+  thiCong           Decimal?       @db.Decimal(18, 2)
+  tongCong          Decimal?       @db.Decimal(18, 2)
+  linkHdThamKhao    String?
+  ghiChu            String?
+
+  rawVatTu          String?
+  rawThiCong        String?
+  rawTongCong       String?
+  rawLinkHdThamKhao String?
+  rawGhiChu         String?
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  boqItem           BoqItem        @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  topResultInLogs   SearchLog[]    @relation("TopResultPrice")
+  feedbackPrices    UserFeedback[] @relation("SelectedPriceFeedback")
+
+  @@index([boqItemId])
+  @@index([pricePeriodCode])
+  @@map("boq_item_prices")
+}
+
+model ImportRowError {
+  id              String      @id @default(cuid())
+  importBatchId   String
+  sheetName       String?
+  sourceRowNumber Int?
+  errorCode       String
+  errorMessage    String
+  rawRowJson      Json?
+  createdAt       DateTime    @default(now())
+
+  importBatch     ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([importBatchId])
+  @@map("import_row_errors")
+}
+
+model Synonym {
+  id             String   @id @default(cuid())
+  term           String
+  normalizedTerm String
+  canonicalTerm  String
+  groupName      String?
+  languageCode   String?
+  domainGroup    String?
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([normalizedTerm])
+  @@index([canonicalTerm])
+  @@index([isActive])
+  @@map("synonyms")
+}
+
+model SearchLog {
+  id                      String        @id @default(cuid())
+  query                   String
+  normalizedQuery         String?
+  expandedQueryJson       Json?
+  searchMode              String?
+  selectedPricePeriodCode String?
+  topResultItemId         String?
+  topResultPriceId        String?
+  topScore                Decimal?      @db.Decimal(8, 2)
+  confidenceLabel         String?
+  resultCount             Int?
+  responseMs              Int?
+  createdAt               DateTime      @default(now())
+
+  topResultItem           BoqItem?      @relation("TopResultItem", fields: [topResultItemId], references: [id], onDelete: SetNull)
+  topResultPrice          BoqItemPrice? @relation("TopResultPrice", fields: [topResultPriceId], references: [id], onDelete: SetNull)
+  userFeedbacks           UserFeedback[]
+
+  @@index([searchMode])
+  @@index([selectedPricePeriodCode])
+  @@map("search_logs")
+}
+
+model UserFeedback {
+  id              String        @id @default(cuid())
+  searchLogId     String?
+  query           String?
+  selectedItemId  String
+  selectedPriceId String?
+  feedbackType    String
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  searchLog       SearchLog?    @relation(fields: [searchLogId], references: [id], onDelete: SetNull)
+  selectedItem    BoqItem       @relation("SelectedItemFeedback", fields: [selectedItemId], references: [id], onDelete: Cascade)
+  selectedPrice   BoqItemPrice? @relation("SelectedPriceFeedback", fields: [selectedPriceId], references: [id], onDelete: SetNull)
+
+  @@index([searchLogId])
+  @@index([selectedItemId])
+  @@index([feedbackType])
+  @@map("user_feedback")
+}
