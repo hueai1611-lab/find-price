@@ -162,7 +162,7 @@ export default function SearchRetrievalSettingsPage() {
             <input
               type="number"
               min={1}
-              max={1gi0000}
+              max={10000}
               required
               value={values.takeDiameterRescue}
               onChange={(e) =>
