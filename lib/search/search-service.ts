@@ -3,6 +3,7 @@ import { prisma } from "../db/prisma";
 import { calculateScore } from "../ranking/calculate-score";
 import type { SearchResult } from "./search-types";
 import { getSearchRetrievalSettings } from "./search-retrieval-settings";
+import { buildReducedSearchQueries } from "./query-fallback";
 import {
   canonicalizeTechnicalText,
   cmQueryFitsSpecCaps,
@@ -60,6 +61,10 @@ export type SearchItemsOptions = {
    * Use `Infinity` for no cap (e.g. full list UI); retrieval `take` limits still apply.
    */
   maxResults?: number;
+  /**
+   * When true, do not run reduced-keyword fallback (avoids recursion; internal use).
+   */
+  skipReducedQueryFallback?: boolean;
 };
 
 export type SearchItemsPayload = {
@@ -394,6 +399,24 @@ export async function searchItems(
   });
   const totalMatched = sorted.length;
   const maxResults = options?.maxResults ?? 5;
+
+  if (
+    totalMatched === 0 &&
+    !options?.skipReducedQueryFallback &&
+    normalizedQuery.trim().length >= 2
+  ) {
+    const reducedList = buildReducedSearchQueries(normalizedQuery);
+    for (const subQ of reducedList) {
+      const retry = await searchItems(subQ, selectedPricePeriodCode, {
+        ...options,
+        skipReducedQueryFallback: true,
+      });
+      if (retry.totalMatched > 0) {
+        return retry;
+      }
+    }
+  }
+
   return {
     results: sorted.slice(0, maxResults),
     totalMatched,

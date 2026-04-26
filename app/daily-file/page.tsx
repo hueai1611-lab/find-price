@@ -227,9 +227,9 @@ export default function DailyFileLinkedTongCongPage() {
 
       <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-2 sm:col-span-2">
+          <label className="flex flex-col gap-2 sm:col-span-2 border-b border-gray-300 pb-2">
             <span className="text-sm font-medium text-slate-800">
-              Daily workbook (.xlsx)
+              Input file to search (.xlsx)
             </span>
             <input
               type="file"
@@ -361,15 +361,15 @@ export default function DailyFileLinkedTongCongPage() {
             type="button"
             disabled={!canSubmit || busy}
             onClick={onGenerate}
-            className="inline-flex w-fit items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-50"
           >
             {busy ? 'Đang tạo…' : 'Xuất file kết quả'}
           </button>
-          <span className="text-xs text-slate-600">
+          <span className="text-xs text-slate-600 hidden">
             Sheet &quot;Kết quả&quot;: 8 cột (STT → Status). Cột &quot;Giá
             Tổng&quot; và &quot;Linked formula&quot; được tô nền nổi bật ở
-            header và nền rất nhạt ở phần dữ liệu. Trạng thái: LINKED,
-            NO_MATCH, NO_LINK, EMPTY_QUERY.
+            header và nền rất nhạt ở phần dữ liệu. Trạng thái: LINKED, NO_MATCH,
+            NO_LINK, EMPTY_QUERY.
           </span>
         </div>
       </section>
