@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Tất cả kết quả',
+  title: 'search/all',
 };
 
 export default function SearchAllLayout({

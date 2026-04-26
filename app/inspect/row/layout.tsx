@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Xem dòng nguồn',
+  title: 'inspect/row',
 };
 
 export default function InspectRowLayout({

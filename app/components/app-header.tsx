@@ -20,23 +20,28 @@ export function AppHeader() {
     pathname.startsWith('/inspect');
   const settingsActive = pathname.startsWith('/settings');
   const dailyFileActive =
-    pathname === '/daily-file' || pathname.startsWith('/daily-file/');
+    pathname === '/' ||
+    pathname === '/daily-file' ||
+    pathname.startsWith('/daily-file/');
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/90 bg-white/90 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
-          href="/search"
+          href="/daily-file"
           className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg"
         >
           Smart Search
         </Link>
-        <nav className="flex shrink-0 items-center gap-1 sm:gap-2" aria-label="Main">
+        <nav
+          className="flex shrink-0 items-center gap-1 sm:gap-2"
+          aria-label="Main"
+        >
           <Link href="/daily-file" className={navLink(dailyFileActive)}>
-            File ngày
+            Theo File
           </Link>
           <Link href="/search" className={navLink(searchActive)}>
-            Tra cứu
+            Theo Keyword
           </Link>
           <Link href="/settings/search" className={navLink(settingsActive)}>
             Cài đặt

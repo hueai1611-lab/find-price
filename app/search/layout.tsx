@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Tra cứu',
+  title: 'search',
 };
 
 export default function SearchLayout({

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Cài đặt',
+  title: 'settings',
 };
 
 export default function SettingsLayout({

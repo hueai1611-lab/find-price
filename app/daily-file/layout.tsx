@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'File ngày',
+  title: 'daily-file',
 };
 
 export default function DailyFileLayout({
