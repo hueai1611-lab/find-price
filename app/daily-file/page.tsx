@@ -59,8 +59,8 @@ export default function DailyFileLinkedTongCongPage() {
   const [sheetLists, setSheetLists] = useState<SheetNameLists | null>(null);
   const [includeHiddenSheets, setIncludeHiddenSheets] = useState(false);
   const [sheetName, setSheetName] = useState('');
-  const [inputCol, setInputCol] = useState('A');
-  const [startRow, setStartRow] = useState(2);
+  const [inputCol, setInputCol] = useState('B');
+  const [startRow, setStartRow] = useState(8);
   const [pricePeriodCodes, setPricePeriodCodes] = useState<string[]>([]);
   const [pricePeriodCode, setPricePeriodCode] = useState('');
   /** Controls separator style in external workbook formulas (Windows vs Excel for Mac). */
@@ -337,7 +337,7 @@ export default function DailyFileLinkedTongCongPage() {
               value={inputCol}
               onChange={(e) => setInputCol(e.target.value)}
               className={inputClass}
-              placeholder="A"
+              placeholder="B"
             />
           </label>
 
@@ -350,7 +350,7 @@ export default function DailyFileLinkedTongCongPage() {
               min={1}
               max={1000000}
               value={startRow}
-              onChange={(e) => setStartRow(Number(e.target.value) || 1)}
+              onChange={(e) => setStartRow(Number(e.target.value) || 8)}
               className={inputClass}
             />
           </label>
