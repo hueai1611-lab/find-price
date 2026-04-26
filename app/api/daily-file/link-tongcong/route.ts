@@ -41,6 +41,32 @@ const FILL_DATA_HIGHLIGHT: ExcelJS.Fill = {
   fgColor: { argb: "FFFFFBF0" },
 };
 
+/** Viền mỏng quanh từng ô (grid). */
+const GRID_EDGE: ExcelJS.Border = {
+  style: "thin",
+  color: { argb: "FFBBBBBB" },
+};
+
+function applyFullGridBorders(
+  ws: ExcelJS.Worksheet,
+  fromRow: number,
+  toRow: number,
+  fromCol: number,
+  toCol: number,
+): void {
+  for (let rn = fromRow; rn <= toRow; rn++) {
+    const row = ws.getRow(rn);
+    for (let c = fromCol; c <= toCol; c++) {
+      row.getCell(c).border = {
+        top: { ...GRID_EDGE },
+        left: { ...GRID_EDGE },
+        bottom: { ...GRID_EDGE },
+        right: { ...GRID_EDGE },
+      };
+    }
+  }
+}
+
 function toInt(value: FormDataEntryValue | null, fallback: number): number {
   const n = typeof value === "string" ? Number(value) : Number.NaN;
   if (!Number.isFinite(n)) return fallback;
@@ -295,6 +321,8 @@ export async function POST(request: Request) {
     row.getCell(COL_GIA_TONG).fill = { ...FILL_DATA_HIGHLIGHT };
     row.getCell(COL_LINKED_FORMULA).fill = { ...FILL_DATA_HIGHLIGHT };
   }
+
+  applyFullGridBorders(outWs, 1, lastOutRow, 1, RESULT_HEADERS.length);
 
   outWs.columns = [
     { width: 5 },
