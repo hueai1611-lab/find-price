@@ -227,7 +227,7 @@ export default function DailyFileLinkedTongCongPage() {
 
       <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-2 sm:col-span-2 border-b border-gray-300 pb-2">
+          <label className="flex flex-col gap-2 sm:col-span-2 border border-gray-300 p-2 rounded-lg bg-gray-50 cursor-pointer">
             <span className="text-sm font-medium text-slate-800">
               Input file to search (.xlsx)
             </span>

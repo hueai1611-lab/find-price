@@ -265,6 +265,7 @@ export async function POST(request: Request) {
     }
 
     const canLink =
+      Boolean(rootPath.trim()) &&
       Boolean(best.importBatchId) &&
       Boolean(masterWorkbookFileName) &&
       Boolean(sourceRowNumber && sourceRowNumber >= 1) &&
