@@ -19,6 +19,8 @@ export function AppHeader() {
     pathname.startsWith('/search/') ||
     pathname.startsWith('/inspect');
   const settingsActive = pathname.startsWith('/settings');
+  const dailyFileActive =
+    pathname === '/daily-file' || pathname.startsWith('/daily-file/');
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/90 bg-white/90 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
@@ -30,6 +32,9 @@ export function AppHeader() {
           Smart Search
         </Link>
         <nav className="flex shrink-0 items-center gap-1 sm:gap-2" aria-label="Main">
+          <Link href="/daily-file" className={navLink(dailyFileActive)}>
+            File ngày
+          </Link>
           <Link href="/search" className={navLink(searchActive)}>
             Tra cứu
           </Link>

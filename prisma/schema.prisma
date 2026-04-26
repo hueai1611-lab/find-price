@@ -6,8 +6,25 @@ datasource db {
   provider = "postgresql"
 }
 
+model AppSettings {
+  /**
+   * Singleton settings row.
+   * Always read/write by fixed id in `lib/settings/app-settings.ts`.
+   */
+  id String @id
+
+  /// Windows UNC root folder containing quarter master workbooks.
+  /// Example: \\10.100.58.35\p.ktxd$\2.HSMT_NS\NS\1\
+  quarterMasterSharedRootPath String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
 model ImportBatch {
-  id                     String           @id @default(cuid())
+  id                     String    @id @default(cuid())
   fileName               String
   versionLabel           String?
   /// Quarter this file was imported as (one quarter per file), e.g. Q2_2026.
@@ -24,50 +41,50 @@ model ImportBatch {
   errorSummary           String?
   startedAt              DateTime?
   completedAt            DateTime?
-  createdAt              DateTime         @default(now())
+  createdAt              DateTime  @default(now())
 
-  boqItems               BoqItem[]
-  importRowErrors        ImportRowError[]
+  boqItems        BoqItem[]
+  importRowErrors ImportRowError[]
 
   @@map("import_batches")
 }
 
 model BoqItem {
-  id                        String         @id @default(cuid())
-  importBatchId             String
-  sourceFileName            String
-  sheetName                 String
-  sourceRowNumber           Int?
-  versionLabel              String?
+  id              String  @id @default(cuid())
+  importBatchId   String
+  sourceFileName  String
+  sheetName       String
+  sourceRowNumber Int?
+  versionLabel    String?
 
-  stt                       String?
-  ctxd                      String?
-  maHieuHsmt                String?
-  maHieuKsg                 String?
-  nhomCongTac               String?
-  noiDungCongViec           String?
-  quyCachKyThuat            String?
-  yeuCauKhac                String?
-  donVi                     String?
-  nguoiThucHien             String?
+  stt             String?
+  ctxd            String?
+  maHieuHsmt      String?
+  maHieuKsg       String?
+  nhomCongTac     String?
+  noiDungCongViec String?
+  quyCachKyThuat  String?
+  yeuCauKhac      String?
+  donVi           String?
+  nguoiThucHien   String?
 
-  rowType                   String
-  sectionCode               String?
-  subgroupCode              String?
-  parentLabel               String?
-  isSearchable              Boolean        @default(true)
+  rowType      String
+  sectionCode  String?
+  subgroupCode String?
+  parentLabel  String?
+  isSearchable Boolean @default(true)
 
-  rawStt                    String?
-  rawCtxd                   String?
-  rawMaHieuHsmt             String?
-  rawMaHieuKsg              String?
-  rawNhomCongTac            String?
-  rawNoiDungCongViec        String?
-  rawQuyCachKyThuat         String?
-  rawYeuCauKhac             String?
-  rawDonVi                  String?
-  rawNguoiThucHien          String?
-  rawRowJson                Json?
+  rawStt             String?
+  rawCtxd            String?
+  rawMaHieuHsmt      String?
+  rawMaHieuKsg       String?
+  rawNhomCongTac     String?
+  rawNoiDungCongViec String?
+  rawQuyCachKyThuat  String?
+  rawYeuCauKhac      String?
+  rawDonVi           String?
+  rawNguoiThucHien   String?
+  rawRowJson         Json?
 
   normalizedNhomCongTac     String?
   normalizedNoiDungCongViec String?
@@ -77,24 +94,24 @@ model BoqItem {
   normalizedMaHieuHsmt      String?
   normalizedMaHieuKsg       String?
 
-  searchText                String
-  normalizedSearchText      String
+  searchText                  String
+  normalizedSearchText        String
   /// Nhóm + nội dung + quy cách only (same normalizeSearchText as full blob prefix).
   normalizedPrimarySearchText String @default("")
 
-  keywordTokens             Json?
-  dimensionTokens           Json?
-  brandTokens               Json?
-  codeTokens                Json?
+  keywordTokens   Json?
+  dimensionTokens Json?
+  brandTokens     Json?
+  codeTokens      Json?
 
-  isActive                  Boolean        @default(true)
-  createdAt                 DateTime       @default(now())
-  updatedAt                 DateTime       @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  importBatch               ImportBatch    @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
-  prices                    BoqItemPrice[]
-  topResultInLogs           SearchLog[]    @relation("TopResultItem")
-  feedbackItems             UserFeedback[] @relation("SelectedItemFeedback")
+  importBatch     ImportBatch    @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  prices          BoqItemPrice[]
+  topResultInLogs SearchLog[]    @relation("TopResultItem")
+  feedbackItems   UserFeedback[] @relation("SelectedItemFeedback")
 
   @@index([importBatchId])
   @@index([rowType])
@@ -107,14 +124,17 @@ model BoqItem {
 }
 
 model BoqItemPrice {
-  id                String         @id @default(cuid())
-  boqItemId         String
-  pricePeriodCode   String
-  pricePeriodLabel  String
+  id               String @id @default(cuid())
+  boqItemId        String
+  pricePeriodCode  String
+  pricePeriodLabel String
 
-  vatTu             Decimal?       @db.Decimal(18, 2)
-  thiCong           Decimal?       @db.Decimal(18, 2)
-  tongCong          Decimal?       @db.Decimal(18, 2)
+  vatTu             Decimal? @db.Decimal(18, 2)
+  thiCong           Decimal? @db.Decimal(18, 2)
+  tongCong          Decimal? @db.Decimal(18, 2)
+  /// 1-based Excel column number for this period's `tongCong` cell in the master workbook.
+  /// Used to build external-link formulas in daily files.
+  sourceTongCongCol Int?
   linkHdThamKhao    String?
   ghiChu            String?
 
@@ -124,12 +144,12 @@ model BoqItemPrice {
   rawLinkHdThamKhao String?
   rawGhiChu         String?
 
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  boqItem           BoqItem        @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
-  topResultInLogs   SearchLog[]    @relation("TopResultPrice")
-  feedbackPrices    UserFeedback[] @relation("SelectedPriceFeedback")
+  boqItem         BoqItem        @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  topResultInLogs SearchLog[]    @relation("TopResultPrice")
+  feedbackPrices  UserFeedback[] @relation("SelectedPriceFeedback")
 
   @@index([boqItemId])
   @@index([pricePeriodCode])
@@ -137,16 +157,16 @@ model BoqItemPrice {
 }
 
 model ImportRowError {
-  id              String      @id @default(cuid())
+  id              String   @id @default(cuid())
   importBatchId   String
   sheetName       String?
   sourceRowNumber Int?
   errorCode       String
   errorMessage    String
   rawRowJson      Json?
-  createdAt       DateTime    @default(now())
+  createdAt       DateTime @default(now())
 
-  importBatch     ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   @@index([importBatchId])
   @@map("import_row_errors")
@@ -172,7 +192,7 @@ model Synonym {
 }
 
 model SearchLog {
-  id                      String        @id @default(cuid())
+  id                      String   @id @default(cuid())
   query                   String
   normalizedQuery         String?
   expandedQueryJson       Json?
@@ -180,15 +200,15 @@ model SearchLog {
   selectedPricePeriodCode String?
   topResultItemId         String?
   topResultPriceId        String?
-  topScore                Decimal?      @db.Decimal(8, 2)
+  topScore                Decimal? @db.Decimal(8, 2)
   confidenceLabel         String?
   resultCount             Int?
   responseMs              Int?
-  createdAt               DateTime      @default(now())
+  createdAt               DateTime @default(now())
 
-  topResultItem           BoqItem?      @relation("TopResultItem", fields: [topResultItemId], references: [id], onDelete: SetNull)
-  topResultPrice          BoqItemPrice? @relation("TopResultPrice", fields: [topResultPriceId], references: [id], onDelete: SetNull)
-  userFeedbacks           UserFeedback[]
+  topResultItem  BoqItem?       @relation("TopResultItem", fields: [topResultItemId], references: [id], onDelete: SetNull)
+  topResultPrice BoqItemPrice?  @relation("TopResultPrice", fields: [topResultPriceId], references: [id], onDelete: SetNull)
+  userFeedbacks  UserFeedback[]
 
   @@index([searchMode])
   @@index([selectedPricePeriodCode])
@@ -196,18 +216,18 @@ model SearchLog {
 }
 
 model UserFeedback {
-  id              String        @id @default(cuid())
+  id              String   @id @default(cuid())
   searchLogId     String?
   query           String?
   selectedItemId  String
   selectedPriceId String?
   feedbackType    String
   notes           String?
-  createdAt       DateTime      @default(now())
+  createdAt       DateTime @default(now())
 
-  searchLog       SearchLog?    @relation(fields: [searchLogId], references: [id], onDelete: SetNull)
-  selectedItem    BoqItem       @relation("SelectedItemFeedback", fields: [selectedItemId], references: [id], onDelete: Cascade)
-  selectedPrice   BoqItemPrice? @relation("SelectedPriceFeedback", fields: [selectedPriceId], references: [id], onDelete: SetNull)
+  searchLog     SearchLog?    @relation(fields: [searchLogId], references: [id], onDelete: SetNull)
+  selectedItem  BoqItem       @relation("SelectedItemFeedback", fields: [selectedItemId], references: [id], onDelete: Cascade)
+  selectedPrice BoqItemPrice? @relation("SelectedPriceFeedback", fields: [selectedPriceId], references: [id], onDelete: SetNull)
 
   @@index([searchLogId])
   @@index([selectedItemId])

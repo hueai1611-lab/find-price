@@ -1,7 +1,15 @@
-'use client';
-
 import Link from 'next/link';
-import { useEffect, useState, type FormEvent } from 'react';
+import { redirect } from 'next/navigation';
+
+import {
+  getAppSettings,
+  setQuarterMasterSharedRootPath,
+} from '@/lib/settings/app-settings';
+import {
+  getSearchRetrievalSettings,
+  mergeSearchRetrievalSettings,
+  saveSearchRetrievalSettings,
+} from '@/lib/search/search-retrieval-settings';
 
 type Settings = {
   takePrimaryTechnical: number;
@@ -12,86 +20,33 @@ type Settings = {
 const inputClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20';
 
-export default function SearchRetrievalSettingsPage() {
-  const [values, setValues] = useState<Settings>({
-    takePrimaryTechnical: 350,
-    takePrimarySimple: 50,
-    takeDiameterRescue: 800,
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/search/retrieval-settings', {
-          cache: 'no-store',
-        });
-        const data = (await res.json()) as Partial<Settings> & {
-          error?: string;
-        };
-        if (!res.ok) {
-          if (!cancelled) {
-            setError(
-              typeof data.error === 'string' ? data.error : res.statusText,
-            );
-          }
-          return;
-        }
-        if (!cancelled) {
-          setValues({
-            takePrimaryTechnical: Number(data.takePrimaryTechnical) || 350,
-            takePrimarySimple: Number(data.takePrimarySimple) || 50,
-            takeDiameterRescue: Number(data.takeDiameterRescue) || 800,
-          });
-        }
-      } catch {
-        if (!cancelled) setError('Không tải được cấu hình.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-    try {
-      const res = await fetch('/api/search/retrieval-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      const data = (await res.json()) as Partial<Settings> & { error?: string };
-      if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : res.statusText);
-        return;
-      }
-      setValues({
-        takePrimaryTechnical:
-          Number(data.takePrimaryTechnical) || values.takePrimaryTechnical,
-        takePrimarySimple:
-          Number(data.takePrimarySimple) || values.takePrimarySimple,
-        takeDiameterRescue:
-          Number(data.takeDiameterRescue) || values.takeDiameterRescue,
-      });
-      setMessage(
-        'Đã lưu. Giá trị được ghi vào data/search-retrieval-settings.json.',
-      );
-    } catch {
-      setError('Lưu thất bại.');
-    } finally {
-      setSaving(false);
-    }
+export default async function SearchRetrievalSettingsPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  async function saveSharedRootAction(formData: FormData) {
+    'use server';
+    const v = String(formData.get('quarterMasterSharedRootPath') ?? '');
+    await setQuarterMasterSharedRootPath(v);
+    redirect('/settings/search?saved=sharedRoot');
   }
+
+  async function saveRetrievalAction(formData: FormData) {
+    'use server';
+    const partial: Partial<Settings> = {
+      takePrimarySimple: Number(formData.get('takePrimarySimple') ?? NaN),
+      takePrimaryTechnical: Number(formData.get('takePrimaryTechnical') ?? NaN),
+      takeDiameterRescue: Number(formData.get('takeDiameterRescue') ?? NaN),
+    };
+    const merged = mergeSearchRetrievalSettings(partial);
+    saveSearchRetrievalSettings(merged);
+    redirect('/settings/search?saved=retrieval');
+  }
+
+  const currentRetrieval = getSearchRetrievalSettings();
+  const appSettings = await getAppSettings();
+  const saved = typeof searchParams?.saved === 'string' ? searchParams.saved : '';
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8 sm:px-6 sm:py-10">
@@ -114,11 +69,44 @@ export default function SearchRetrievalSettingsPage() {
         </Link>
       </header>
 
-      {loading ? (
-        <p className="text-sm text-slate-500">Đang tải…</p>
-      ) : (
+      <section className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold text-slate-900">
+          Quarter master path (shared)
+        </h2>
         <form
-          onSubmit={onSubmit}
+          action={saveSharedRootAction}
+          className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-6"
+        >
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-slate-800">
+              quarterMasterSharedRootPath
+            </span>
+            <input
+              name="quarterMasterSharedRootPath"
+              placeholder="\\10.100.58.35\\p.ktxd$\\2.HSMT_NS\\NS\\1\\"
+              defaultValue={appSettings.quarterMasterSharedRootPath}
+              className={inputClass}
+            />
+            <span className="text-xs text-slate-600">
+              Root thư mục UNC chứa file đơn giá quý (source of truth). Hệ thống sẽ
+              nối thêm tên file workbook theo batch import.
+            </span>
+          </label>
+          <button
+            type="submit"
+            className="inline-flex w-fit items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          >
+            Lưu
+          </button>
+        </form>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold text-slate-900">
+          Retrieval limits
+        </h2>
+        <form
+          action={saveRetrievalAction}
           className="flex flex-col gap-5 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-6"
         >
           <label className="flex flex-col gap-2">
@@ -129,17 +117,12 @@ export default function SearchRetrievalSettingsPage() {
               </span>
             </span>
             <input
+              name="takePrimarySimple"
               type="number"
               min={1}
               max={500000}
               required
-              value={values.takePrimarySimple}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  takePrimarySimple: Number(e.target.value) || 0,
-                }))
-              }
+              defaultValue={currentRetrieval.takePrimarySimple}
               className={inputClass}
             />
           </label>
@@ -151,17 +134,12 @@ export default function SearchRetrievalSettingsPage() {
               </span>
             </span>
             <input
+              name="takePrimaryTechnical"
               type="number"
               min={1}
               max={500000}
               required
-              value={values.takePrimaryTechnical}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  takePrimaryTechnical: Number(e.target.value) || 0,
-                }))
-              }
+              defaultValue={currentRetrieval.takePrimaryTechnical}
               className={inputClass}
             />
           </label>
@@ -170,44 +148,38 @@ export default function SearchRetrievalSettingsPage() {
               takeDiameterRescue
             </span>
             <input
+              name="takeDiameterRescue"
               type="number"
               min={1}
               max={500000}
               required
-              value={values.takeDiameterRescue}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  takeDiameterRescue: Number(e.target.value) || 0,
-                }))
-              }
+              defaultValue={currentRetrieval.takeDiameterRescue}
               className={inputClass}
             />
           </label>
           <button
             type="submit"
-            disabled={saving}
             className="inline-flex w-fit items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-50"
           >
-            {saving ? 'Đang lưu…' : 'Lưu'}
+            Lưu
           </button>
         </form>
-      )}
+      </section>
 
-      {message ? (
+      {saved === 'sharedRoot' ? (
         <p
           className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
           role="status"
         >
-          {message}
+          Đã lưu quarterMasterSharedRootPath.
         </p>
       ) : null}
-      {error ? (
+      {saved === 'retrieval' ? (
         <p
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
-          role="alert"
+          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+          role="status"
         >
-          {error}
+          Đã lưu. Giá trị được ghi vào data/search-retrieval-settings.json.
         </p>
       ) : null}
     </main>

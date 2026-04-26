@@ -186,6 +186,11 @@ async function main() {
   const pricePeriodLabel =
     process.env.PRICE_PERIOD_LABEL?.trim() || matchedQuarter.pricePeriodLabel;
 
+  const sourceTongCongCol =
+    matchedQuarter.columns.tongCong !== undefined
+      ? matchedQuarter.columns.tongCong + 1
+      : null;
+
   if (DEBUG_IMPORT) {
     console.log(
       "quarterGroups detail:",
@@ -330,7 +335,7 @@ async function main() {
       }
 
       if (p && hasAnyQuarterValue(p)) {
-        await prisma.boqItemPrice.create({
+        const created = await prisma.boqItemPrice.create({
           data: {
             boqItemId: item.id,
             pricePeriodCode,
@@ -349,6 +354,14 @@ async function main() {
             rawGhiChu: p.ghiChu ?? null,
           },
         });
+
+        if (sourceTongCongCol != null) {
+          await prisma.$executeRaw`
+            UPDATE "boq_item_prices"
+            SET "sourceTongCongCol" = ${sourceTongCongCol}
+            WHERE "id" = ${created.id}
+          `;
+        }
 
         importedPrices++;
       }
