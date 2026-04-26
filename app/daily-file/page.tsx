@@ -206,12 +206,12 @@ export default function DailyFileLinkedTongCongPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
+    <main className="mx-auto max-w-[80%] px-4 py-8 sm:px-6 sm:py-10">
       <header className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Daily file → kết quả tra cứu
+          Tìm kiếm theo file Excel
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-slate-600 hidden">
           Upload file ngày chỉ để đọc cột truy vấn; hệ thống xuất{' '}
           <span className="font-medium">file kết quả mới</span> (sheet &quot;Kết
           quả&quot;) với link <span className="font-mono">tongCong</span> tới

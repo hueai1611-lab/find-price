@@ -46,15 +46,16 @@ export default async function SearchRetrievalSettingsPage({
 
   const currentRetrieval = getSearchRetrievalSettings();
   const appSettings = await getAppSettings();
-  const saved = typeof searchParams?.saved === 'string' ? searchParams.saved : '';
+  const saved =
+    typeof searchParams?.saved === 'string' ? searchParams.saved : '';
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8 sm:px-6 sm:py-10">
+    <main className="mx-auto max-w-[80%] px-4 py-8 sm:px-6 sm:py-10">
       <header className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Cài đặt retrieval
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-slate-600 hidden">
           Giới hạn <span className="font-mono text-slate-700">take</span> trong{' '}
           <span className="font-mono text-xs text-slate-600">
             search-service.ts
@@ -63,7 +64,7 @@ export default async function SearchRetrievalSettingsPage({
         </p>
         <Link
           href="/search"
-          className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          className="hidden mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-800"
         >
           ← Về Tra cứu
         </Link>
@@ -88,8 +89,8 @@ export default async function SearchRetrievalSettingsPage({
               className={inputClass}
             />
             <span className="text-xs text-slate-600">
-              Root thư mục UNC chứa file đơn giá quý (source of truth). Hệ thống sẽ
-              nối thêm tên file workbook theo batch import.
+              Root thư mục UNC chứa file đơn giá quý (source of truth). Hệ thống
+              sẽ nối thêm tên file workbook theo batch import.
             </span>
           </label>
           <button
