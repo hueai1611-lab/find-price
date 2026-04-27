@@ -3,7 +3,7 @@ import {
   BATCH_SEARCH_QUERIES_VALIDATION_MESSAGE,
   MAX_BATCH_SEARCH_QUERIES,
 } from "@/lib/search/batch-search-query-limit";
-import { searchItems } from "@/lib/search/search-service";
+import { searchItemsWithLatestSelectionRestore } from "@/lib/search/search-service";
 
 const VALIDATION_ERROR = "query is required and must be a non-empty string";
 
@@ -22,9 +22,23 @@ export async function GET(request: Request) {
       ? rawPeriod.trim()
       : undefined;
 
-  const { results, totalMatched } = await searchItems(query, pricePeriodCode);
+  const {
+    results,
+    totalMatched,
+    searchFeedbackMeta,
+    latestSearchSelection,
+    noSuitableResultSelected,
+  } = await searchItemsWithLatestSelectionRestore(query, pricePeriodCode);
 
-  return NextResponse.json({ results, totalMatched });
+  return NextResponse.json({
+    results,
+    totalMatched,
+    ...(searchFeedbackMeta != null ? { searchFeedbackMeta } : {}),
+    ...(latestSearchSelection !== undefined
+      ? { latestSearchSelection }
+      : {}),
+    ...(noSuitableResultSelected ? { noSuitableResultSelected: true } : {}),
+  });
 }
 
 type PostBody = {
@@ -70,8 +84,23 @@ export async function POST(request: Request) {
 
   const byQuery = await Promise.all(
     queries.map(async (query) => {
-      const { results, totalMatched } = await searchItems(query, pricePeriodCode);
-      return { query, results, totalMatched };
+      const {
+        results,
+        totalMatched,
+        searchFeedbackMeta,
+        latestSearchSelection,
+        noSuitableResultSelected,
+      } = await searchItemsWithLatestSelectionRestore(query, pricePeriodCode);
+      return {
+        query,
+        results,
+        totalMatched,
+        ...(searchFeedbackMeta != null ? { searchFeedbackMeta } : {}),
+        ...(latestSearchSelection !== undefined
+          ? { latestSearchSelection }
+          : {}),
+        ...(noSuitableResultSelected ? { noSuitableResultSelected: true } : {}),
+      };
     })
   );
 

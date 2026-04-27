@@ -4,9 +4,38 @@ import {
   pickMainTableTop,
   reorderSearchResultsByTongCongPresence,
 } from '@/lib/search/display-result-order';
+import type { SearchFeedbackMeta } from '@/lib/search/feedback-no-suitable-signal';
+import {
+  resolveSearchAllSelectedCandidate,
+} from '@/lib/search/search-all-selected-candidate';
 import { searchItems } from '@/lib/search/search-service';
 
 import { SearchAllResultsTable } from './search-all-results-table';
+
+function SearchFeedbackMetaDevPanel({ meta }: { meta: SearchFeedbackMeta }) {
+  return (
+    <div
+      className="mt-3 rounded-lg border border-dashed border-violet-300 bg-violet-50/70 px-3 py-2 font-mono text-[10px] leading-relaxed text-violet-950"
+      aria-label="Dev only: search feedback meta"
+    >
+      <div className="font-semibold text-violet-900">[dev] searchFeedbackMeta</div>
+      <ul className="mt-1 list-inside list-disc text-violet-900/95">
+        <li>noSuitableResultCount: {meta.noSuitableResultCount}</li>
+        <li>
+          noSuitableResultSignatureCount: {meta.noSuitableResultSignatureCount}
+        </li>
+        <li>searchQualityWarning: {String(meta.searchQualityWarning)}</li>
+        <li>
+          totalNoSuitableWeight:{' '}
+          {meta.totalNoSuitableWeight ?? '—'}
+        </li>
+      </ul>
+      {meta.searchQualityReason ? (
+        <p className="mt-1 text-[10px] text-violet-800">{meta.searchQualityReason}</p>
+      ) : null}
+    </div>
+  );
+}
 
 type PageProps = {
   searchParams: Promise<{
@@ -15,9 +44,6 @@ type PageProps = {
     selectedItemId?: string;
   }>;
 };
-
-const thBase =
-  'sticky top-0 z-20 border-b border-slate-200 bg-slate-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-4';
 
 export default async function SearchAllResultsPage({
   searchParams,
@@ -53,9 +79,14 @@ export default async function SearchAllResultsPage({
     );
   }
 
-  const { results: rawResults } = await searchItems(query, pricePeriodCode, {
-    maxResults: Infinity,
-  });
+  const { results: rawResults, searchFeedbackMeta } = await searchItems(
+    query,
+    pricePeriodCode,
+    {
+      maxResults: Infinity,
+      skipNoSuitableMetaEmptyOverride: true,
+    }
+  );
   const periodForOrder = pricePeriodCode ?? '';
   const results = reorderSearchResultsByTongCongPresence(
     rawResults,
@@ -63,10 +94,13 @@ export default async function SearchAllResultsPage({
   );
 
   const defaultPick = pickMainTableTop(results, periodForOrder);
-  const initialSelectedItemId =
-    rawSelectedItemId && results.some((r) => r.itemId === rawSelectedItemId)
-      ? rawSelectedItemId
-      : (defaultPick?.itemId ?? results[0]?.itemId ?? '');
+  const initialSelectedCandidate = await resolveSearchAllSelectedCandidate({
+    query,
+    pricePeriodCode,
+    rawSelectedItemIdFromUrl: rawSelectedItemId,
+    results,
+    defaultPickItemId: defaultPick?.itemId ?? results[0]?.itemId ?? '',
+  });
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
@@ -104,53 +138,17 @@ export default async function SearchAllResultsPage({
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/5">
-        <div className="max-h-[min(75vh,640px)] overflow-auto">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead>
-              <tr>
-                <th className={`${thBase} w-12 border-r border-slate-200`}>
-                  STT
-                </th>
-                <th className={`${thBase} border-r border-slate-200`}>
-                  Tóm tắt
-                </th>
-                <th
-                  className={`${thBase} border-r border-slate-200 text-right`}
-                >
-                  Tổng cộng
-                </th>
-                <th className={`${thBase} border-r border-slate-200`}>
-                  Đơn vị
-                </th>
-                <th className={`${thBase} border-r border-slate-200`}>
-                  Dòng nguồn
-                </th>
-                <th className={thBase}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-12 text-center text-sm text-slate-500"
-                  >
-                    Không có kết quả.
-                  </td>
-                </tr>
-              ) : (
-                <SearchAllResultsTable
-                  results={results}
-                  query={query}
-                  pricePeriodCode={pricePeriodCode ?? ''}
-                  initialSelectedItemId={initialSelectedItemId}
-                />
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-5">
+        <SearchAllResultsTable
+          results={results}
+          query={query}
+          pricePeriodCode={pricePeriodCode ?? ''}
+          initialSelectedCandidate={initialSelectedCandidate}
+        />
       </div>
+      {process.env.NODE_ENV !== 'production' && searchFeedbackMeta ? (
+        <SearchFeedbackMetaDevPanel meta={searchFeedbackMeta} />
+      ) : null}
     </main>
   );
 }

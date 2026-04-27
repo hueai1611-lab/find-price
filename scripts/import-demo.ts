@@ -30,6 +30,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db/prisma";
 import { buildHeaderMap } from "../lib/import/header-map";
 import {
+  buildNormalizedExpansionSearchText,
   buildNormalizedPrimarySearchText,
   buildSearchText,
   normalizeSearchText,
@@ -256,6 +257,7 @@ async function main() {
       }
 
       const normalizedPrimarySearchText = buildNormalizedPrimarySearchText(base);
+      const normalizedExpansionSearchText = buildNormalizedExpansionSearchText(base);
 
       const searchText = buildSearchText([
         base.nhomCongTac,
@@ -318,6 +320,7 @@ async function main() {
           searchText,
           normalizedSearchText,
           normalizedPrimarySearchText,
+          normalizedExpansionSearchText,
         },
       });
 

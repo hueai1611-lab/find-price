@@ -1,13 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { usePathname } from 'next/navigation';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 
 import {
-  getDisplayedTop,
-  pickMainTableTop,
+  buildInitialSelectedItemIdByQuery,
+  getMainSearchRowDisplay,
   reorderSearchResultsByTongCongPresence,
 } from '@/lib/search/display-result-order';
+import type { SearchLatestSelectionDTO } from '@/lib/search/feedback-latest-selection';
+import type { SearchFeedbackMeta } from '@/lib/search/feedback-no-suitable-signal';
+import { normalizeFeedbackLookupKey } from '@/lib/search/feedback-lookup-key';
+import { VIRTUAL_NO_SUITABLE_CANDIDATE_KEY } from '@/lib/search/feedback-virtual-constants';
 import { buildShortResultSummary } from '@/lib/search/result-summary';
 import type { SearchResult } from '@/lib/search/search-types';
 import { MAX_BATCH_SEARCH_QUERIES } from '@/lib/search/batch-search-query-limit';
@@ -19,9 +30,18 @@ import {
 
 type ApiErrorBody = { error?: string };
 
+const MAIN_TABLE_NO_SUITABLE_LABEL = 'Không có kết quả phù hợp';
+
 function dash(s: string | null | undefined) {
   const t = (s ?? '').trim();
   return t ? t : '—';
+}
+
+/** Cùng format bảng “Tất cả kết quả”: `Row {n} · {sheet}` hoặc `—`. */
+function formatDongNguonPlain(top: SearchResult | undefined): string {
+  if (!top) return '—';
+  const row = top.sourceRowNumber != null ? String(top.sourceRowNumber) : '—';
+  return `Row ${row} · ${dash(top.sheetName)}`;
 }
 
 /**
@@ -85,6 +105,156 @@ function parseTotalMatched(raw: unknown, fallback: number): number {
   return fallback;
 }
 
+function parseLatestSearchSelection(
+  raw: unknown,
+): SearchLatestSelectionDTO | null | undefined {
+  if (raw === null) return null;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const type = o.type;
+  if (type === 'no_suitable_result') {
+    return {
+      type: 'no_suitable_result',
+      ...(typeof o.createdAt === 'string' ? { createdAt: o.createdAt } : {}),
+    };
+  }
+  if (
+    (type === 'selected_item' || type === 'boq_item') &&
+    typeof o.boqItemId === 'string' &&
+    o.boqItemId.trim() !== ''
+  ) {
+    return {
+      type: 'selected_item',
+      boqItemId: o.boqItemId.trim(),
+      ...(typeof o.createdAt === 'string' ? { createdAt: o.createdAt } : {}),
+    };
+  }
+  return undefined;
+}
+
+function parseNoSuitableResultSelected(raw: unknown): boolean {
+  return raw === true;
+}
+
+function parseSearchFeedbackMeta(
+  raw: unknown,
+): SearchFeedbackMeta | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const noSuitableResultCount = o.noSuitableResultCount;
+  const noSuitableResultSignatureCount = o.noSuitableResultSignatureCount;
+  const searchQualityWarning = o.searchQualityWarning;
+  if (
+    typeof noSuitableResultCount !== 'number' ||
+    typeof noSuitableResultSignatureCount !== 'number' ||
+    typeof searchQualityWarning !== 'boolean'
+  ) {
+    return undefined;
+  }
+  const searchQualityReason = o.searchQualityReason;
+  const totalNoSuitableWeight = o.totalNoSuitableWeight;
+  return {
+    noSuitableResultCount,
+    noSuitableResultSignatureCount,
+    searchQualityWarning,
+    ...(typeof searchQualityReason === 'string' && searchQualityReason
+      ? { searchQualityReason }
+      : {}),
+    ...(typeof totalNoSuitableWeight === 'number' &&
+    Number.isFinite(totalNoSuitableWeight)
+      ? { totalNoSuitableWeight }
+      : {}),
+  };
+}
+
+async function pullLatestSelectionsIntoRuns(
+  runs: QueryRun[],
+  period: string,
+  prevSelected?: Record<string, string> | null,
+): Promise<{ runs: QueryRun[]; selectedItemIdByQuery: Record<string, string> }> {
+  /** Non-empty lines in table order → server response order (trimmed queries). */
+  const linePairs: { runIndex: number; q: string }[] = [];
+  runs.forEach((r, runIndex) => {
+    const t = r.query.trim();
+    if (t.length > 0) linePairs.push({ runIndex, q: t });
+  });
+  const queries = linePairs.map((p) => p.q);
+  if (queries.length === 0) {
+    return { runs, selectedItemIdByQuery: {} };
+  }
+  try {
+    const res = await fetch('/api/search/latest-selections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({
+        queries,
+        ...(period.trim() ? { pricePeriodCode: period.trim() } : {}),
+      }),
+    });
+    if (!res.ok) {
+      return {
+        runs,
+        selectedItemIdByQuery: buildInitialSelectedItemIdByQuery(
+          runs,
+          period,
+          prevSelected ?? null,
+        ),
+      };
+    }
+    const data = (await res.json()) as {
+      byQuery?: { query?: string; latestSearchSelection?: unknown }[];
+    };
+    const rows = Array.isArray(data.byQuery) ? data.byQuery : [];
+
+    let merged: QueryRun[];
+    if (rows.length === linePairs.length) {
+      const next = [...runs];
+      for (let i = 0; i < linePairs.length; i++) {
+        const parsed = parseLatestSearchSelection(rows[i]?.latestSearchSelection);
+        if (parsed !== undefined) {
+          const { runIndex } = linePairs[i];
+          next[runIndex] = {
+            ...next[runIndex],
+            latestSearchSelection: parsed,
+          };
+        }
+      }
+      merged = next;
+    } else {
+      const map = new Map<string, SearchLatestSelectionDTO | null>();
+      for (const row of rows) {
+        const q = typeof row.query === 'string' ? row.query.trim() : '';
+        if (!q) continue;
+        const parsed = parseLatestSearchSelection(row.latestSearchSelection);
+        if (parsed !== undefined) map.set(q, parsed);
+      }
+      merged = runs.map((run) => {
+        const k = run.query.trim();
+        return map.has(k) ? { ...run, latestSearchSelection: map.get(k)! } : run;
+      });
+    }
+
+    return {
+      runs: merged,
+      selectedItemIdByQuery: buildInitialSelectedItemIdByQuery(
+        merged,
+        period,
+        prevSelected ?? null,
+      ),
+    };
+  } catch {
+    return {
+      runs,
+      selectedItemIdByQuery: buildInitialSelectedItemIdByQuery(
+        runs,
+        period,
+        prevSelected ?? null,
+      ),
+    };
+  }
+}
+
 function resolvePeriodAfterLoad(
   draftPeriod: string | undefined,
   periods: string[],
@@ -115,13 +285,139 @@ export default function SearchToolPage() {
   >({});
   const [copyHint, setCopyHint] = useState<string | null>(null);
 
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
+  const searchSyncSnapshotRef = useRef({
+    byQuery: [] as QueryRun[],
+    pricePeriodCode: '',
+    selectedItemIdByQuery: {} as Record<string, string>,
+  });
+  searchSyncSnapshotRef.current = {
+    byQuery,
+    pricePeriodCode,
+    selectedItemIdByQuery,
+  };
+
+  const focusDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const performSyncLatestSelections = useCallback(async (reason: string) => {
+    const snap = searchSyncSnapshotRef.current;
+    const { byQuery: runs, pricePeriodCode: period, selectedItemIdByQuery: prevSel } =
+      snap;
+    if (runs.length === 0) return;
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      typeof console !== 'undefined' &&
+      typeof console.debug === 'function'
+    ) {
+      console.debug('[search/syncLatest]', {
+        reason,
+        period,
+        queries: runs.map((r) => r.query.trim()),
+      });
+    }
+    const pulled = await pullLatestSelectionsIntoRuns(
+      runs,
+      period,
+      prevSel,
+    );
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      typeof console !== 'undefined' &&
+      typeof console.debug === 'function'
+    ) {
+      for (const run of pulled.runs) {
+        const q = run.query.trim();
+        const display = getMainSearchRowDisplay(
+          {
+            query: run.query,
+            results: run.results,
+            latestSearchSelection: run.latestSearchSelection,
+            formPricePeriodCode: period,
+            noSuitableResultSelected: run.noSuitableResultSelected === true,
+          },
+          pulled.selectedItemIdByQuery,
+        );
+        console.debug('[latest-selection-sync]', {
+          query: run.query,
+          normalizedQuery: normalizeFeedbackLookupKey(run.query),
+          latestSearchSelection: run.latestSearchSelection ?? null,
+          selectedItemIdByQueryAfter: pulled.selectedItemIdByQuery[q] ?? null,
+          displayMode: display.mode,
+        });
+      }
+    }
+    setByQuery([...pulled.runs]);
+    setSelectedItemIdByQuery({ ...pulled.selectedItemIdByQuery });
+    const d = readSearchDraft();
+    if (d) {
+      writeSearchDraft({
+        ...d,
+        pricePeriodCode: period.trim() || d.pricePeriodCode,
+        byQuery: pulled.runs,
+        selectedItemIdByQuery: pulled.selectedItemIdByQuery,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pathname !== '/search') return;
+    if (byQuery.length === 0) return;
+    void performSyncLatestSelections('search-surface');
+  }, [pathname, byQuery.length, performSyncLatestSelections]);
+
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState !== 'visible') return;
+      if (pathnameRef.current !== '/search') return;
+      void performSyncLatestSelections('visibilitychange');
+    }
+    function onFocus() {
+      if (pathnameRef.current !== '/search') return;
+      if (focusDebounceRef.current) clearTimeout(focusDebounceRef.current);
+      focusDebounceRef.current = setTimeout(() => {
+        focusDebounceRef.current = null;
+        void performSyncLatestSelections('window-focus');
+      }, 120);
+    }
+    function onPageShow(ev: Event) {
+      if (pathnameRef.current !== '/search') return;
+      const pe = ev as PageTransitionEvent;
+      void performSyncLatestSelections(
+        pe.persisted ? 'pageshow-bfcache' : 'pageshow',
+      );
+    }
+    function onPopState() {
+      if (pathnameRef.current !== '/search') return;
+      void performSyncLatestSelections('popstate');
+    }
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('popstate', onPopState);
+      if (focusDebounceRef.current) clearTimeout(focusDebounceRef.current);
+    };
+  }, [performSyncLatestSelections]);
+
   const copyGiáTổngColumn = useCallback(async () => {
     if (byQuery.length === 0) return;
     const lines = byQuery.map((run) => {
-      const top = getDisplayedTop(
-        run,
-        pricePeriodCode,
-        selectedItemIdByQuery[run.query],
+      const { item: top } = getMainSearchRowDisplay(
+        {
+          query: run.query,
+          results: run.results,
+          latestSearchSelection: run.latestSearchSelection,
+          formPricePeriodCode: pricePeriodCode,
+          noSuitableResultSelected: run.noSuitableResultSelected === true,
+        },
+        selectedItemIdByQuery,
       );
       return tongCongForClipboard(top, pricePeriodCode);
     });
@@ -137,18 +433,36 @@ export default function SearchToolPage() {
 
   const copyTsvRows = useCallback(async () => {
     if (byQuery.length === 0) return;
-    const header = ['Query', 'Tóm tắt', 'Giá Tổng', 'Đơn vị'].join('\t');
+    const header = [
+      'Query',
+      'Tóm tắt',
+      'Giá Tổng',
+      'Đơn vị',
+      'DÒNG NGUỒN',
+    ].join('\t');
     const rows = byQuery.map((run) => {
-      const top = getDisplayedTop(
-        run,
-        pricePeriodCode,
-        selectedItemIdByQuery[run.query],
+      const display = getMainSearchRowDisplay(
+        {
+          query: run.query,
+          results: run.results,
+          latestSearchSelection: run.latestSearchSelection,
+          formPricePeriodCode: pricePeriodCode,
+          noSuitableResultSelected: run.noSuitableResultSelected === true,
+        },
+        selectedItemIdByQuery,
       );
+      const top = display.item;
+      const noSuitable = display.mode === 'no_suitable_result';
       const q = tsvCell(run.query);
-      const summary = top ? tsvCell(buildShortResultSummary(top)) : '';
-      const price = tongCongForClipboard(top, pricePeriodCode);
-      const unit = top ? tsvCell(dash(top.donVi)) : '';
-      return [q, summary, price, unit].join('\t');
+      const summary = noSuitable
+        ? tsvCell(MAIN_TABLE_NO_SUITABLE_LABEL)
+        : top
+          ? tsvCell(buildShortResultSummary(top))
+          : '';
+      const price = noSuitable ? '' : tongCongForClipboard(top, pricePeriodCode);
+      const unit = noSuitable ? '' : top ? tsvCell(dash(top.donVi)) : '';
+      const dongNguon = noSuitable ? '' : tsvCell(formatDongNguonPlain(top));
+      return [q, summary, price, unit, dongNguon].join('\t');
     });
     const text = [header, ...rows].join('\n');
     try {
@@ -167,9 +481,7 @@ export default function SearchToolPage() {
       if (!cancelled && d) {
         /* eslint-disable react-hooks/set-state-in-effect */
         setQueryText(d.queryText);
-        setByQuery(d.byQuery);
         setLastSearchAttempted(d.lastSearchAttempted);
-        setSelectedItemIdByQuery(d.selectedItemIdByQuery ?? {});
         /* eslint-enable react-hooks/set-state-in-effect */
       }
 
@@ -194,16 +506,16 @@ export default function SearchToolPage() {
       /* eslint-disable react-hooks/set-state-in-effect */
       setPricePeriodCode(nextPeriod);
 
-      const restored = d?.byQuery;
+      let runs: QueryRun[] = d?.byQuery ?? [];
       if (
-        Array.isArray(restored) &&
-        restored.length > 0 &&
-        restored.some((r) => r.totalMatched === undefined)
+        Array.isArray(runs) &&
+        runs.length > 0 &&
+        runs.some((r) => r.totalMatched === undefined)
       ) {
         const p2 = nextPeriod.trim();
         try {
-          const filled = await Promise.all(
-            restored.map(async (run) => {
+          runs = await Promise.all(
+            runs.map(async (run) => {
               if (run.totalMatched !== undefined) return run;
               const params = new URLSearchParams({ query: run.query });
               if (p2) params.set('pricePeriodCode', p2);
@@ -213,56 +525,62 @@ export default function SearchToolPage() {
               if (!res.ok) {
                 return { ...run, totalMatched: run.results.length };
               }
-              const data: { totalMatched?: unknown; results?: unknown } =
-                await res.json();
-              const rawLen = Array.isArray(data.results)
-                ? data.results.length
-                : run.results.length;
+              const data: {
+                totalMatched?: unknown;
+                results?: unknown;
+                searchFeedbackMeta?: unknown;
+                latestSearchSelection?: unknown;
+                noSuitableResultSelected?: unknown;
+              } = await res.json();
+              const raw = Array.isArray(data.results)
+                ? (data.results as SearchResult[])
+                : run.results;
+              const rawLen = raw.length;
+              const meta = parseSearchFeedbackMeta(data.searchFeedbackMeta);
+              const latest = parseLatestSearchSelection(
+                data.latestSearchSelection,
+              );
+              const ns = parseNoSuitableResultSelected(
+                data.noSuitableResultSelected,
+              );
+              const { noSuitableResultSelected: _prevNs, ...runRest } = run;
               return {
-                ...run,
+                ...runRest,
+                results: reorderSearchResultsByTongCongPresence(
+                  raw,
+                  p2,
+                ),
                 totalMatched: parseTotalMatched(data.totalMatched, rawLen),
+                ...(meta != null ? { searchFeedbackMeta: meta } : {}),
+                ...(latest !== undefined
+                  ? { latestSearchSelection: latest }
+                  : {}),
+                ...(ns ? { noSuitableResultSelected: true as const } : {}),
               };
             }),
           );
-          if (!cancelled) {
-            setByQuery(filled);
-            if (d) {
-              writeSearchDraft({
-                v: 1,
-                queryText: d.queryText,
-                pricePeriodCode: nextPeriod,
-                byQuery: filled,
-                lastSearchAttempted: d.lastSearchAttempted,
-                selectedItemIdByQuery: d.selectedItemIdByQuery,
-              });
-            }
-          }
         } catch {
-          /* giữ byQuery đã restore */
+          /* keep runs */
         }
+      }
+
+      if (!cancelled && runs.length > 0) {
+        searchSyncSnapshotRef.current = {
+          byQuery: runs,
+          pricePeriodCode: nextPeriod,
+          selectedItemIdByQuery: d?.selectedItemIdByQuery ?? {},
+        };
+        await performSyncLatestSelections('mount-restore');
+      } else if (!cancelled && d) {
+        setByQuery(d.byQuery);
+        setSelectedItemIdByQuery(d.selectedItemIdByQuery ?? {});
       }
       /* eslint-enable react-hooks/set-state-in-effect */
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    function onVis() {
-      if (document.visibilityState !== 'visible') return;
-      const d = readSearchDraft();
-      if (!d) return;
-      if (d.selectedItemIdByQuery) {
-        setSelectedItemIdByQuery(d.selectedItemIdByQuery);
-      }
-      if (d.byQuery.length > 0) {
-        setByQuery(d.byQuery);
-      }
-    }
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
+  }, [performSyncLatestSelections]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -303,6 +621,9 @@ export default function SearchToolPage() {
         const data: {
           results?: SearchResult[];
           totalMatched?: unknown;
+          searchFeedbackMeta?: unknown;
+          latestSearchSelection?: unknown;
+          noSuitableResultSelected?: unknown;
         } & ApiErrorBody = await res.json();
 
         if (!res.ok) {
@@ -316,6 +637,9 @@ export default function SearchToolPage() {
 
         const raw = Array.isArray(data.results) ? data.results : [];
         const totalMatched = parseTotalMatched(data.totalMatched, raw.length);
+        const meta = parseSearchFeedbackMeta(data.searchFeedbackMeta);
+        const latest = parseLatestSearchSelection(data.latestSearchSelection);
+        const ns = parseNoSuitableResultSelected(data.noSuitableResultSelected);
         const next: QueryRun[] = [
           {
             query: lines[0],
@@ -324,13 +648,12 @@ export default function SearchToolPage() {
               pricePeriodCode,
             ),
             totalMatched,
+            ...(meta != null ? { searchFeedbackMeta: meta } : {}),
+            ...(latest !== undefined ? { latestSearchSelection: latest } : {}),
+            ...(ns ? { noSuitableResultSelected: true as const } : {}),
           },
         ];
-        const sel: Record<string, string> = {};
-        for (const run of next) {
-          const t = pickMainTableTop(run.results, pricePeriodCode);
-          if (t) sel[run.query] = t.itemId;
-        }
+        const sel = buildInitialSelectedItemIdByQuery(next, pricePeriodCode);
         setByQuery(next);
         setSelectedItemIdByQuery(sel);
         writeSearchDraft({
@@ -368,9 +691,15 @@ export default function SearchToolPage() {
           query?: string;
           results?: unknown;
           totalMatched?: unknown;
+          searchFeedbackMeta?: unknown;
+          latestSearchSelection?: unknown;
+          noSuitableResultSelected?: unknown;
         };
         const raw = Array.isArray(r.results) ? r.results : [];
         const totalMatched = parseTotalMatched(r.totalMatched, raw.length);
+        const meta = parseSearchFeedbackMeta(r.searchFeedbackMeta);
+        const latest = parseLatestSearchSelection(r.latestSearchSelection);
+        const ns = parseNoSuitableResultSelected(r.noSuitableResultSelected);
         return {
           query: typeof r.query === 'string' ? r.query : '',
           results: reorderSearchResultsByTongCongPresence(
@@ -378,13 +707,12 @@ export default function SearchToolPage() {
             pricePeriodCode,
           ),
           totalMatched,
+          ...(meta != null ? { searchFeedbackMeta: meta } : {}),
+          ...(latest !== undefined ? { latestSearchSelection: latest } : {}),
+          ...(ns ? { noSuitableResultSelected: true as const } : {}),
         };
       });
-      const sel: Record<string, string> = {};
-      for (const run of next) {
-        const t = pickMainTableTop(run.results, pricePeriodCode);
-        if (t) sel[run.query] = t.itemId;
-      }
+      const sel = buildInitialSelectedItemIdByQuery(next, pricePeriodCode);
       setByQuery(next);
       setSelectedItemIdByQuery(sel);
       writeSearchDraft({
@@ -405,7 +733,7 @@ export default function SearchToolPage() {
     }
   }
 
-  const colCount = 7;
+  const colCount = 8;
 
   const thBase =
     'sticky top-0 z-20 border-b border-slate-200 bg-slate-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-4';
@@ -581,6 +909,9 @@ export default function SearchToolPage() {
                     Đơn vị
                   </th>
                   <th className={`${thBase} border-r border-slate-200`}>
+                    DÒNG NGUỒN
+                  </th>
+                  <th className={`${thBase} border-r border-slate-200`}>
                     Số kết quả
                   </th>
                   <th className={`${thBase}`}>Thao tác</th>
@@ -611,17 +942,28 @@ export default function SearchToolPage() {
                   </tr>
                 ) : (
                   byQuery.map((run, i) => {
-                    const top = getDisplayedTop(
-                      run,
-                      pricePeriodCode,
-                      selectedItemIdByQuery[run.query],
+                    const display = getMainSearchRowDisplay(
+                      {
+                        query: run.query,
+                        results: run.results,
+                        latestSearchSelection: run.latestSearchSelection,
+                        formPricePeriodCode: pricePeriodCode,
+                        noSuitableResultSelected:
+                          run.noSuitableResultSelected === true,
+                      },
+                      selectedItemIdByQuery,
                     );
-                    const hitTotal = run.totalMatched ?? run.results.length;
-                    const showMoreLink = hitTotal > 1;
+                    const top = display.item;
+                    const noSuitableDisplay =
+                      display.mode === 'no_suitable_result';
+                    const rawHitTotal = run.totalMatched ?? run.results.length;
+                    const showMoreLink = rawHitTotal > 1;
                     const moreHref = moreResultsHref(
                       run.query,
                       pricePeriodCode,
-                      top?.itemId,
+                      noSuitableDisplay
+                        ? VIRTUAL_NO_SUITABLE_CANDIDATE_KEY
+                        : top?.itemId,
                     );
                     return (
                       <tr
@@ -643,27 +985,51 @@ export default function SearchToolPage() {
                         <td
                           className={`${tdBase} max-w-md border-r border-slate-100 text-slate-800`}
                         >
-                          {top ? buildShortResultSummary(top) : '—'}
+                          {noSuitableDisplay
+                            ? MAIN_TABLE_NO_SUITABLE_LABEL
+                            : top
+                              ? buildShortResultSummary(top)
+                              : '—'}
                         </td>
                         <td
                           className={`${tdBase} border-r border-slate-100 text-right font-mono text-sm font-semibold tabular-nums text-slate-900`}
                         >
-                          {top
-                            ? formatTongCongForSelectedPeriod(
-                                top,
-                                pricePeriodCode,
-                              )
-                            : '—'}
+                          {noSuitableDisplay
+                            ? ''
+                            : top
+                              ? formatTongCongForSelectedPeriod(
+                                  top,
+                                  pricePeriodCode,
+                                )
+                              : '—'}
                         </td>
                         <td
                           className={`${tdBase} border-r border-slate-100 font-mono text-xs text-slate-600`}
                         >
-                          {top ? dash(top.donVi) : '—'}
+                          {noSuitableDisplay ? '' : top ? dash(top.donVi) : '—'}
+                        </td>
+                        <td
+                          className={`${tdBase} border-r border-slate-100 font-mono text-xs text-slate-600`}
+                        >
+                          {noSuitableDisplay ? (
+                            ''
+                          ) : top ? (
+                            <Link
+                              href={`/inspect/row?itemId=${encodeURIComponent(top.itemId)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-indigo-600 underline decoration-indigo-200 underline-offset-2 hover:text-indigo-800"
+                            >
+                              {formatDongNguonPlain(top)}
+                            </Link>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td
                           className={`${tdBase} border-r border-slate-100 text-xs tabular-nums text-slate-600`}
                         >
-                          Tổng {hitTotal} kết quả
+                          {`Tổng ${rawHitTotal} kết quả`}
                         </td>
                         <td className={tdBase}>
                           {showMoreLink ? (
@@ -695,6 +1061,37 @@ export default function SearchToolPage() {
             </table>
           </div>
         </div>
+
+        {process.env.NODE_ENV !== 'production' && byQuery.length > 0 ? (
+          <div
+            className="rounded-lg border border-dashed border-violet-300 bg-violet-50/70 px-3 py-2 font-mono text-[10px] leading-relaxed text-violet-950"
+            aria-label="Dev only: search feedback meta"
+          >
+            <div className="font-semibold text-violet-900">
+              [dev] searchFeedbackMeta
+            </div>
+            <ul className="mt-1 space-y-1">
+              {byQuery.map((run) => (
+                <li key={run.query}>
+                  <span className="text-violet-800">{run.query}:</span>{' '}
+                  {run.searchFeedbackMeta ? (
+                    <span className="text-violet-900/95">
+                      noSuitableResultCount={run.searchFeedbackMeta.noSuitableResultCount}
+                      , noSuitableResultSignatureCount=
+                      {run.searchFeedbackMeta.noSuitableResultSignatureCount},
+                      searchQualityWarning=
+                      {String(run.searchFeedbackMeta.searchQualityWarning)},
+                      totalNoSuitableWeight=
+                      {run.searchFeedbackMeta.totalNoSuitableWeight ?? '—'}
+                    </span>
+                  ) : (
+                    <span className="text-violet-600">(none)</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
     </main>
   );

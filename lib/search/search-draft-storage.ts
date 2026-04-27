@@ -1,9 +1,17 @@
+import type { SearchLatestSelectionDTO } from './feedback-latest-selection';
+import type { SearchFeedbackMeta } from './feedback-no-suitable-signal';
 import type { SearchResult } from './search-types';
 
 export type QueryRun = {
   query: string;
   results: SearchResult[];
   totalMatched?: number;
+  /** From `/api/search` — optional quality signal (dev UI / future admin). */
+  searchFeedbackMeta?: SearchFeedbackMeta;
+  /** Latest explicit user selection (`select` / `no_suitable_result`) for main table display. */
+  latestSearchSelection?: SearchLatestSelectionDTO | null;
+  /** True when collective no-suitable feedback cleared hits for this query + period. */
+  noSuitableResultSelected?: boolean;
 };
 
 export const SEARCH_DRAFT_STORAGE_KEY = 'find-price-search-draft-v2';

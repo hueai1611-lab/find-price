@@ -1,3 +1,6 @@
+import { buildBoqExpansionSuffix } from "../search/boq-search-expand";
+import { normalizeBaseSearchString } from "../search/boq-search-normalize";
+
 /**
  * Primary search blob: nhóm + nội dung + quy — same pipeline as `scripts/import-demo.ts`.
  * Keep in sync when changing import normalization.
@@ -17,12 +20,25 @@ export function normalizeSearchText(input: string): string {
     .trim();
 }
 
+/**
+ * Nhóm + nội dung + quy, same `normalizeBaseSearchString` as keyword search
+ * (diameter + technical glue + diacritics off).
+ */
 export function buildNormalizedPrimarySearchText(item: {
   nhomCongTac?: string | null;
   noiDungCongViec?: string | null;
   quyCachKyThuat?: string | null;
 }): string {
-  return normalizeSearchText(
+  return normalizeBaseSearchString(
     buildSearchText([item.nhomCongTac, item.noiDungCongViec, item.quyCachKyThuat])
   );
+}
+
+/** Token aliases (btct, dul, d400 phrases) derived from the normalized primary only. */
+export function buildNormalizedExpansionSearchText(item: {
+  nhomCongTac?: string | null;
+  noiDungCongViec?: string | null;
+  quyCachKyThuat?: string | null;
+}): string {
+  return buildBoqExpansionSuffix(buildNormalizedPrimarySearchText(item));
 }

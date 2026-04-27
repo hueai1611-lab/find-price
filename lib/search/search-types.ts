@@ -1,3 +1,5 @@
+import type { BoqScoreDebugInfo } from "../ranking/calculate-score";
+
 export type SearchResult = {
   itemId: string;
   importBatchId: string;
@@ -33,4 +35,6 @@ export type SearchResult = {
   ghiChu?: string | null;
 
   scoreBreakdown?: Record<string, number>;
+  /** Chỉ khi `DEBUG_BOQ_SCORING=1` — chi tiết debug ranking cho từng dòng kết quả. */
+  scoreDebug?: BoqScoreDebugInfo;
 };

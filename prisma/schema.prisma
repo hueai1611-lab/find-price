@@ -98,6 +98,8 @@ model BoqItem {
   normalizedSearchText        String
   /// Nhóm + nội dung + quy cách only (same normalizeSearchText as full blob prefix).
   normalizedPrimarySearchText String @default("")
+  /// BOQ / technical alias layer (btct, dul, d400, long phrases) — derived from primary.
+  normalizedExpansionSearchText String @default("")
 
   keywordTokens   Json?
   dimensionTokens Json?
@@ -112,6 +114,7 @@ model BoqItem {
   prices          BoqItemPrice[]
   topResultInLogs SearchLog[]    @relation("TopResultItem")
   feedbackItems   UserFeedback[] @relation("SelectedItemFeedback")
+  searchFeedback  SearchFeedback[]
 
   @@index([importBatchId])
   @@index([rowType])
@@ -233,4 +236,32 @@ model UserFeedback {
   @@index([selectedItemId])
   @@index([feedbackType])
   @@map("user_feedback")
+}
+
+/// Per-query learning signal: boosts ranking for items users chose (never changes BOQ prices).
+model SearchFeedback {
+  id                String   @id @default(cuid())
+  query             String
+  normalizedQuery   String
+  /// Token signature for cross-keyword positive feedback (see `buildQuerySignature`).
+  querySignature    String?
+  boqItemId         String?
+  pricePeriodCode   String?
+  action            String
+  weight            Float    @default(1)
+  /// Snapshot of visible result ids when logging (e.g. no suitable / context).
+  resultBoqItemIds  Json?
+  resultCount       Int?
+  selectedRank      Int?
+  /// Learning-only virtual candidate id when `action = no_suitable_result` (not a BOQ row).
+  virtualCandidateKey String?
+  createdAt         DateTime @default(now())
+
+  boqItem BoqItem? @relation(fields: [boqItemId], references: [id], onDelete: SetNull)
+
+  @@index([normalizedQuery])
+  @@index([querySignature])
+  @@index([boqItemId])
+  @@index([normalizedQuery, boqItemId])
+  @@map("search_feedback")
 }

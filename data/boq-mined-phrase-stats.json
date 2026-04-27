@@ -1,0 +1,823 @@
+{
+  "generatedAt": "2026-04-27T03:20:30.482Z",
+  "sources": [
+    "/Users/admin/Documents/Projects/AI/find-price/data/Q2_2026.xlsx",
+    "/Users/admin/Documents/Projects/AI/find-price/output/small-Book3.xlsx"
+  ],
+  "perFile": {
+    "Q2_2026.xlsx": {
+      "rowTextCount": 2222,
+      "bigrams": [
+        [
+          "hoac tuong",
+          534
+        ],
+        [
+          "tuong duong",
+          510
+        ],
+        [
+          "chi tiet",
+          413
+        ],
+        [
+          "tiet theo",
+          314
+        ],
+        [
+          "truoc khi",
+          296
+        ],
+        [
+          "nha thau",
+          289
+        ],
+        [
+          "thi cong",
+          246
+        ],
+        [
+          "bao gom",
+          202
+        ],
+        [
+          "thau trinh",
+          201
+        ],
+        [
+          "phe duyet",
+          176
+        ],
+        [
+          "cac loai",
+          172
+        ],
+        [
+          "theo bvtk",
+          168
+        ],
+        [
+          "duyet truoc",
+          163
+        ],
+        [
+          "van chuyen",
+          162
+        ],
+        [
+          "theo pd",
+          160
+        ],
+        [
+          "tinh dien",
+          158
+        ],
+        [
+          "cong btct",
+          157
+        ],
+        [
+          "khi thi",
+          156
+        ],
+        [
+          "hoan thien",
+          150
+        ],
+        [
+          "phu kien",
+          149
+        ],
+        [
+          "son tinh",
+          148
+        ],
+        [
+          "ve sinh",
+          146
+        ],
+        [
+          "cua nk",
+          144
+        ],
+        [
+          "be tong",
+          143
+        ],
+        [
+          "theo thiet",
+          143
+        ],
+        [
+          "thiet ke",
+          136
+        ],
+        [
+          "ma kem",
+          136
+        ],
+        [
+          "mau sac",
+          133
+        ],
+        [
+          "chieu day",
+          132
+        ],
+        [
+          "cc ld",
+          130
+        ],
+        [
+          "do day",
+          129
+        ],
+        [
+          "(hoac tuong",
+          126
+        ],
+        [
+          "sac theo",
+          124
+        ],
+        [
+          "lop son",
+          123
+        ],
+        [
+          "bang may",
+          117
+        ],
+        [
+          "dinh muc",
+          117
+        ],
+        [
+          "yeu cau",
+          116
+        ],
+        [
+          "mau theo",
+          115
+        ],
+        [
+          "kich thuoc",
+          112
+        ],
+        [
+          "ket hop",
+          112
+        ],
+        [
+          "be mat",
+          111
+        ],
+        [
+          "dien mau",
+          110
+        ],
+        [
+          "kct ccld",
+          107
+        ],
+        [
+          "lien ket",
+          107
+        ],
+        [
+          "tuong duong)",
+          104
+        ],
+        [
+          "duong kinh",
+          103
+        ],
+        [
+          "lap dat",
+          102
+        ],
+        [
+          "coc kn",
+          98
+        ],
+        [
+          "ket cau",
+          96
+        ],
+        [
+          "ho ga",
+          96
+        ],
+        [
+          "nap ho",
+          94
+        ],
+        [
+          "son epoxy",
+          91
+        ],
+        [
+          "tinh toan",
+          91
+        ],
+        [
+          "thep hop",
+          88
+        ],
+        [
+          "pha do",
+          87
+        ],
+        [
+          "toi thieu",
+          87
+        ],
+        [
+          "cung cap",
+          85
+        ],
+        [
+          "su dung",
+          85
+        ],
+        [
+          "theo tinh",
+          85
+        ],
+        [
+          "duc san",
+          83
+        ]
+      ],
+      "trigrams": [
+        [
+          "hoac tuong duong",
+          458
+        ],
+        [
+          "chi tiet theo",
+          288
+        ],
+        [
+          "nha thau trinh",
+          201
+        ],
+        [
+          "duyet truoc khi",
+          163
+        ],
+        [
+          "tiet theo bvtk",
+          162
+        ],
+        [
+          "truoc khi thi",
+          156
+        ],
+        [
+          "son tinh dien",
+          140
+        ],
+        [
+          "khi thi cong",
+          132
+        ],
+        [
+          "mau sac theo",
+          122
+        ],
+        [
+          "tinh dien mau",
+          110
+        ],
+        [
+          "theo thiet ke",
+          105
+        ],
+        [
+          "phe duyet truoc",
+          94
+        ],
+        [
+          "nap ho ga",
+          92
+        ],
+        [
+          "(hoac tuong duong)",
+          88
+        ],
+        [
+          "theo tinh toan",
+          85
+        ],
+        [
+          "tuong duong chi",
+          82
+        ],
+        [
+          "duong chi tiet",
+          82
+        ],
+        [
+          "mau theo pd",
+          79
+        ],
+        [
+          "ss400 hoac tuong",
+          72
+        ],
+        [
+          "theo bvtk nha",
+          72
+        ],
+        [
+          "bvtk nha thau",
+          72
+        ],
+        [
+          "pd truoc khi",
+          72
+        ],
+        [
+          "cac loai thep",
+          67
+        ],
+        [
+          "kstk duyet truoc",
+          67
+        ],
+        [
+          "bt be tong",
+          66
+        ],
+        [
+          "ma kem nhung",
+          65
+        ],
+        [
+          "truoc khi trien",
+          65
+        ],
+        [
+          "kct ccld thep",
+          64
+        ],
+        [
+          "khi trien khai",
+          64
+        ],
+        [
+          "trinh duyet mau",
+          61
+        ],
+        [
+          "thep ss400 hoac",
+          59
+        ],
+        [
+          "kem nhung nong",
+          59
+        ],
+        [
+          "cong btct cc",
+          59
+        ],
+        [
+          "btct cc ld",
+          59
+        ],
+        [
+          "theo phe duyet",
+          59
+        ],
+        [
+          "thau trinh mau,",
+          59
+        ],
+        [
+          "thau trinh duyet",
+          58
+        ],
+        [
+          "ket hop thu",
+          56
+        ],
+        [
+          "hop thu cong",
+          56
+        ],
+        [
+          "mac thep ss400",
+          56
+        ]
+      ]
+    },
+    "small-Book3.xlsx": {
+      "rowTextCount": 3589,
+      "bigrams": [
+        [
+          "cot thep",
+          495
+        ],
+        [
+          "be tong",
+          462
+        ],
+        [
+          "duong kinh",
+          320
+        ],
+        [
+          "cong tac",
+          319
+        ],
+        [
+          "gia cong",
+          307
+        ],
+        [
+          "lap dung",
+          303
+        ],
+        [
+          "chieu cao",
+          302
+        ],
+        [
+          "cao <=",
+          293
+        ],
+        [
+          "tac gia",
+          244
+        ],
+        [
+          "vua xm",
+          240
+        ],
+        [
+          "xm mac",
+          240
+        ],
+        [
+          "dung cot",
+          234
+        ],
+        [
+          "cong lap",
+          233
+        ],
+        [
+          "cot thep.",
+          233
+        ],
+        [
+          "thep. cot",
+          233
+        ],
+        [
+          "kinh cot",
+          233
+        ],
+        [
+          "bang may",
+          230
+        ],
+        [
+          "do be",
+          185
+        ],
+        [
+          "thep <=",
+          169
+        ],
+        [
+          "mac 75",
+          169
+        ],
+        [
+          "lap dat",
+          162
+        ],
+        [
+          "be tong,",
+          135
+        ],
+        [
+          "<= 28m",
+          133
+        ],
+        [
+          "dat cap",
+          132
+        ],
+        [
+          "da 1x2,",
+          132
+        ],
+        [
+          "1x2, mac",
+          132
+        ],
+        [
+          "tong bang",
+          128
+        ],
+        [
+          "van khuon",
+          120
+        ],
+        [
+          "tu dien",
+          117
+        ],
+        [
+          "chieu rong",
+          107
+        ],
+        [
+          "bang may,",
+          103
+        ],
+        [
+          "may, do",
+          103
+        ],
+        [
+          "do bang",
+          103
+        ],
+        [
+          "chieu day",
+          103
+        ],
+        [
+          "may bom",
+          101
+        ],
+        [
+          "bom be",
+          98
+        ],
+        [
+          "tong, be",
+          98
+        ],
+        [
+          "dam, giang,",
+          92
+        ],
+        [
+          "thep mong,",
+          84
+        ],
+        [
+          "mong, duong",
+          84
+        ],
+        [
+          "cap ii",
+          82
+        ],
+        [
+          "thu cong",
+          81
+        ],
+        [
+          "cong bang",
+          79
+        ],
+        [
+          "ba bang",
+          79
+        ],
+        [
+          "tong thu",
+          78
+        ],
+        [
+          "bang son",
+          78
+        ],
+        [
+          "cau kien",
+          77
+        ],
+        [
+          "d10, chieu",
+          77
+        ],
+        [
+          "xa dam,",
+          77
+        ],
+        [
+          "mong, chieu",
+          76
+        ],
+        [
+          "cung cap,",
+          75
+        ],
+        [
+          "cap, lap",
+          75
+        ],
+        [
+          "nuoc lot,",
+          73
+        ],
+        [
+          "lot, nuoc",
+          73
+        ],
+        [
+          "nuoc phu",
+          72
+        ],
+        [
+          "ong u.pvc",
+          72
+        ],
+        [
+          "van chuyen",
+          71
+        ],
+        [
+          "rong mong",
+          71
+        ],
+        [
+          "cot, tru,",
+          70
+        ],
+        [
+          "chech upvc",
+          68
+        ]
+      ],
+      "trigrams": [
+        [
+          "chieu cao <=",
+          293
+        ],
+        [
+          "cong tac gia",
+          244
+        ],
+        [
+          "vua xm mac",
+          240
+        ],
+        [
+          "lap dung cot",
+          234
+        ],
+        [
+          "tac gia cong",
+          233
+        ],
+        [
+          "gia cong lap",
+          233
+        ],
+        [
+          "cong lap dung",
+          233
+        ],
+        [
+          "dung cot thep.",
+          233
+        ],
+        [
+          "cot thep. cot",
+          233
+        ],
+        [
+          "thep. cot thep",
+          233
+        ],
+        [
+          "duong kinh cot",
+          233
+        ],
+        [
+          "kinh cot thep",
+          233
+        ],
+        [
+          "do be tong",
+          185
+        ],
+        [
+          "cot thep <=",
+          169
+        ],
+        [
+          "xm mac 75",
+          169
+        ],
+        [
+          "cao <= 28m",
+          133
+        ],
+        [
+          "da 1x2, mac",
+          132
+        ],
+        [
+          "be tong bang",
+          128
+        ],
+        [
+          "tong bang may,",
+          103
+        ],
+        [
+          "bang may, do",
+          103
+        ],
+        [
+          "may, do bang",
+          103
+        ],
+        [
+          "do bang may",
+          98
+        ],
+        [
+          "bang may bom",
+          98
+        ],
+        [
+          "may bom be",
+          98
+        ],
+        [
+          "bom be tong,",
+          98
+        ],
+        [
+          "be tong, be",
+          98
+        ],
+        [
+          "tong, be tong",
+          98
+        ],
+        [
+          "cot thep mong,",
+          84
+        ],
+        [
+          "thep mong, duong",
+          84
+        ],
+        [
+          "mong, duong kinh",
+          84
+        ],
+        [
+          "dat cap ii",
+          82
+        ],
+        [
+          "be tong thu",
+          78
+        ],
+        [
+          "tong thu cong",
+          78
+        ],
+        [
+          "thu cong bang",
+          78
+        ],
+        [
+          "d10, chieu cao",
+          77
+        ],
+        [
+          "mong, chieu rong",
+          76
+        ],
+        [
+          "cung cap, lap",
+          75
+        ],
+        [
+          "cap, lap dat",
+          75
+        ],
+        [
+          "xa dam, giang,",
+          74
+        ],
+        [
+          "nuoc lot, nuoc",
+          73
+        ]
+      ]
+    }
+  }
+}

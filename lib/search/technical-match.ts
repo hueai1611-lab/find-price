@@ -22,8 +22,15 @@ export function canonicalizeTechnicalText(input: string): string {
 
 /** Query token is a cm value or D… token after `normalizeQuery` / tokenization. */
 export function isTechnicalSearchToken(token: string): boolean {
-  const t = token.trim();
-  return /^\d+cm$/i.test(t) || /^d\d+(-d\d+)?$/i.test(t);
+  const t = token.trim().replace(/[,;:]+$/g, "").trim();
+  return (
+    /^\d+cm$/i.test(t) ||
+    /^d\d+(-d\d+)?$/i.test(t) ||
+    /** Plate / panel sizes (e.g. gạch 600x100) — not conjunctive lexical gates. */
+    /^\d+x\d+$/i.test(t) ||
+    /** Common BOQ prefix for “kích thước …” lines. */
+    /^kt$/i.test(t)
+  );
 }
 
 const RE_CM_VALUE = /(\d+)cm/gi;

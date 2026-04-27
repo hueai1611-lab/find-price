@@ -4,7 +4,10 @@ import { isTechnicalSearchToken } from "./technical-match";
  * Normalized (ASCII) tokens treated as weak BOQ phrasing — dropped when building
  * reduced queries. Keep list small to avoid stripping meaningful technical words.
  */
-const BOQ_QUERY_FILLER_TOKENS = new Set([
+export const BOQ_QUERY_FILLER_TOKENS = new Set([
+  "cong", // công (công tác boilerplate)
+  "tac", // tác
+  "vao", // vào
   "he", // hệ
   "tai", // tại
   "vi", // vị (vị trí)
