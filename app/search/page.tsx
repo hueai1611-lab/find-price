@@ -10,6 +10,7 @@ import {
 } from '@/lib/search/display-result-order';
 import { buildShortResultSummary } from '@/lib/search/result-summary';
 import type { SearchResult } from '@/lib/search/search-types';
+import { MAX_BATCH_SEARCH_QUERIES } from '@/lib/search/batch-search-query-limit';
 import {
   type QueryRun,
   readSearchDraft,
@@ -279,6 +280,17 @@ export default function SearchToolPage() {
       return;
     }
 
+    if (lines.length > MAX_BATCH_SEARCH_QUERIES) {
+      setByQuery([]);
+      setSelectedItemIdByQuery({});
+      setError(
+        `Tối đa ${MAX_BATCH_SEARCH_QUERIES} dòng BOQ (mỗi dòng = một BOQ).`,
+      );
+      setLastSearchAttempted(true);
+      setLoading(false);
+      return;
+    }
+
     try {
       const p = pricePeriodCode.trim();
 
@@ -407,8 +419,8 @@ export default function SearchToolPage() {
           Tra cứu BOQ
         </h1>
         <p className="mt-0.5 max-w-2xl text-xs leading-snug text-slate-600 sm:text-sm sm:leading-relaxed">
-          Mỗi dòng một BOQ · chọn kỳ giá · Enter chạy search, Shift+Enter xuống
-          dòng.
+          Mỗi dòng một BOQ (tối đa {MAX_BATCH_SEARCH_QUERIES} dòng) · chọn kỳ
+          giá · Enter chạy search, Shift+Enter xuống dòng.
         </p>
       </header>
 

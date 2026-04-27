@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import {
+  BATCH_SEARCH_QUERIES_VALIDATION_MESSAGE,
+  MAX_BATCH_SEARCH_QUERIES,
+} from "@/lib/search/batch-search-query-limit";
 import { searchItems } from "@/lib/search/search-service";
 
 const VALIDATION_ERROR = "query is required and must be a non-empty string";
-const BATCH_VALIDATION_ERROR =
-  "queries must be a non-empty array of non-empty strings (max 30)";
-const MAX_QUERIES = 30;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -45,15 +46,21 @@ export async function POST(request: Request) {
 
   const rawList = body.queries;
   if (!Array.isArray(rawList) || rawList.length === 0) {
-    return NextResponse.json({ error: BATCH_VALIDATION_ERROR }, { status: 400 });
+    return NextResponse.json(
+      { error: BATCH_SEARCH_QUERIES_VALIDATION_MESSAGE },
+      { status: 400 },
+    );
   }
 
   const queries = rawList
     .map((q) => (typeof q === "string" ? q.trim() : ""))
     .filter((q) => q.length > 0);
 
-  if (queries.length === 0 || queries.length > MAX_QUERIES) {
-    return NextResponse.json({ error: BATCH_VALIDATION_ERROR }, { status: 400 });
+  if (queries.length === 0 || queries.length > MAX_BATCH_SEARCH_QUERIES) {
+    return NextResponse.json(
+      { error: BATCH_SEARCH_QUERIES_VALIDATION_MESSAGE },
+      { status: 400 },
+    );
   }
 
   const pricePeriodCode =
