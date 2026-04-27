@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 
+import {
+  DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN,
+  DAILY_LINK_MAX_EXPORT_ROW_SPAN,
+} from "@/lib/daily-file/export-row-limits";
 import { prisma } from "@/lib/db/prisma";
 import { buildExternalCellLinkFormula, parseLinkExcelTarget } from "@/lib/excel/external-link-formula";
 import { resolveQuarterMasterRootPath } from "@/lib/settings/app-settings";
@@ -152,6 +156,7 @@ export async function POST(request: Request) {
   const sheetName = typeof form.get("sheetName") === "string" ? String(form.get("sheetName")).trim() : "";
   const inputColLetters = normalizeExcelColLetters(form.get("inputCol"));
   const startRow = toInt(form.get("startRow"), 2);
+  const endRowRaw = form.get("endRow");
   const pricePeriodCode =
     typeof form.get("pricePeriodCode") === "string" && String(form.get("pricePeriodCode")).trim() !== ""
       ? String(form.get("pricePeriodCode")).trim()
@@ -173,6 +178,33 @@ export async function POST(request: Request) {
   if (!Number.isFinite(startRow) || startRow < 1 || startRow > 1_000_000) {
     return NextResponse.json({ error: "startRow must be a positive integer" }, { status: 400 });
   }
+
+  let userEndRow: number | null = null;
+  if (endRowRaw != null && String(endRowRaw).trim() !== "") {
+    const parsed = toInt(endRowRaw, Number.NaN);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 1_000_000) {
+      return NextResponse.json(
+        { error: "endRow must be a positive integer between 1 and 1000000, or omitted" },
+        { status: 400 },
+      );
+    }
+    if (parsed < startRow) {
+      return NextResponse.json(
+        { error: "endRow must be greater than or equal to startRow" },
+        { status: 400 },
+      );
+    }
+    const requestedSpan = parsed - startRow + 1;
+    if (requestedSpan > DAILY_LINK_MAX_EXPORT_ROW_SPAN) {
+      return NextResponse.json(
+        {
+          error: `Requested row range is too large (${requestedSpan} rows). Maximum is ${DAILY_LINK_MAX_EXPORT_ROW_SPAN} rows per export. Set a smaller end row or omit end row to use the default span (${DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN} rows from start).`,
+        },
+        { status: 400 },
+      );
+    }
+    userEndRow = parsed;
+  }
   if (!colLettersToNumber(inputColLetters)) {
     return NextResponse.json({ error: "inputCol must be Excel letters (A, B, AA...)" }, { status: 400 });
   }
@@ -192,7 +224,18 @@ export async function POST(request: Request) {
   const sourceTongCongColCache = new Map<string, number | null>();
 
   const lastDataRow = inputSheet.lastRow?.number ?? startRow;
-  const cappedLastRow = Math.min(Math.max(lastDataRow, startRow), 20000);
+  const sheetLast = Math.max(lastDataRow, startRow);
+
+  let endInclusive: number;
+  let defaultSpanApplied = false;
+  if (userEndRow !== null) {
+    endInclusive = Math.min(userEndRow, sheetLast);
+  } else {
+    endInclusive = Math.min(sheetLast, startRow + DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN - 1);
+    if (endInclusive < sheetLast) {
+      defaultSpanApplied = true;
+    }
+  }
 
   const outWb = new ExcelJS.Workbook();
   outWb.creator = "find-price";
@@ -212,7 +255,7 @@ export async function POST(request: Request) {
   let rowsNotLinked = 0;
 
   let stt = 0;
-  for (let r = startRow; r <= cappedLastRow; r++) {
+  for (let r = startRow; r <= endInclusive; r++) {
     rowsProcessed++;
     stt++;
     const inputAddr = `${inputColLetters}${r}`;
@@ -338,14 +381,21 @@ export async function POST(request: Request) {
 
   const out = await outWb.xlsx.writeBuffer();
   const outName = `daily-search-results-${pricePeriodCode}.xlsx`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "Content-Disposition": `attachment; filename="${outName}"`,
+    "X-Rows-Processed": String(rowsProcessed),
+    "X-Rows-Linked": String(rowsLinked),
+    "X-Rows-Blank": String(rowsNotLinked),
+    "X-Export-Row-Start": String(startRow),
+    "X-Export-Row-End": String(endInclusive),
+  };
+  if (defaultSpanApplied) {
+    headers["X-Export-Default-Row-Span-Applied"] = "1";
+  }
+
   return new NextResponse(new Uint8Array(out as ArrayBuffer), {
     status: 200,
-    headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${outName}"`,
-      "X-Rows-Processed": String(rowsProcessed),
-      "X-Rows-Linked": String(rowsLinked),
-      "X-Rows-Blank": String(rowsNotLinked),
-    },
+    headers,
   });
 }

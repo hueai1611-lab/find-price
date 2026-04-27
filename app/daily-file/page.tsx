@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 
+import {
+  DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN,
+  DAILY_LINK_MAX_EXPORT_ROW_SPAN,
+} from '@/lib/daily-file/export-row-limits';
 import type { LinkExcelTarget } from '@/lib/excel/external-link-formula';
 
 type PeriodsResponse = { pricePeriodCodes?: unknown };
@@ -61,6 +65,8 @@ export default function DailyFileLinkedTongCongPage() {
   const [sheetName, setSheetName] = useState('');
   const [inputCol, setInputCol] = useState('B');
   const [startRow, setStartRow] = useState(8);
+  /** Inclusive end row; empty = server uses default span from start (see limits). */
+  const [endRow, setEndRow] = useState('');
   const [pricePeriodCodes, setPricePeriodCodes] = useState<string[]>([]);
   const [pricePeriodCode, setPricePeriodCode] = useState('');
   /** Controls separator style in external workbook formulas (Windows vs Excel for Mac). */
@@ -141,15 +147,39 @@ export default function DailyFileLinkedTongCongPage() {
     );
   }, [sheetLists, sheetOptions]);
 
+  const endRowValidationError = useMemo((): string | null => {
+    const t = endRow.trim();
+    if (!t) return null;
+    const n = Number(t);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+      return 'End row phải là số nguyên dương hoặc để trống.';
+    }
+    if (n < startRow) {
+      return 'End row phải lớn hơn hoặc bằng Start row.';
+    }
+    if (n - startRow + 1 > DAILY_LINK_MAX_EXPORT_ROW_SPAN) {
+      return `Khoảng dòng quá lớn (tối đa ${DAILY_LINK_MAX_EXPORT_ROW_SPAN} dòng mỗi lần xuất). Giảm End row hoặc tăng Start row.`;
+    }
+    return null;
+  }, [endRow, startRow]);
+
   const canSubmit = useMemo(() => {
     return Boolean(
       file &&
       sheetName &&
       inputCol.trim() &&
       startRow >= 1 &&
-      pricePeriodCode.trim(),
+      pricePeriodCode.trim() &&
+      !endRowValidationError,
     );
-  }, [file, sheetName, inputCol, startRow, pricePeriodCode]);
+  }, [
+    file,
+    sheetName,
+    inputCol,
+    startRow,
+    pricePeriodCode,
+    endRowValidationError,
+  ]);
 
   async function onGenerate() {
     if (!file) return;
@@ -162,6 +192,9 @@ export default function DailyFileLinkedTongCongPage() {
       fd.set('sheetName', sheetName);
       fd.set('inputCol', inputCol);
       fd.set('startRow', String(startRow));
+      if (endRow.trim() !== '') {
+        fd.set('endRow', endRow.trim());
+      }
       fd.set('pricePeriodCode', pricePeriodCode);
       fd.set('linkTarget', linkTarget);
 
@@ -195,8 +228,18 @@ export default function DailyFileLinkedTongCongPage() {
       const processed = res.headers.get('X-Rows-Processed');
       const linked = res.headers.get('X-Rows-Linked');
       const blank = res.headers.get('X-Rows-Blank');
+      const rowStart = res.headers.get('X-Export-Row-Start');
+      const rowEnd = res.headers.get('X-Export-Row-End');
+      const defaultCap = res.headers.get('X-Export-Default-Row-Span-Applied');
+      let rangeNote = '';
+      if (rowStart && rowEnd) {
+        rangeNote = ` Dòng nguồn ${rowStart}–${rowEnd}.`;
+      }
+      if (defaultCap === '1') {
+        rangeNote += ` Chỉ xử lý tối đa ${DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN} dòng từ Start row (điền End row để xử lý thêm, tối đa ${DAILY_LINK_MAX_EXPORT_ROW_SPAN} dòng/lần).`;
+      }
       setDone(
-        `Đã tạo file kết quả. processed=${processed ?? '?'}, linked=${linked ?? '?'}, không LINKED=${blank ?? '?'}.`,
+        `Đã tạo file kết quả. processed=${processed ?? '?'}, linked=${linked ?? '?'}, không LINKED=${blank ?? '?'}.${rangeNote}`,
       );
     } catch {
       setError('Có lỗi khi upload hoặc tải file kết quả.');
@@ -353,6 +396,31 @@ export default function DailyFileLinkedTongCongPage() {
               onChange={(e) => setStartRow(Number(e.target.value) || 8)}
               className={inputClass}
             />
+          </label>
+
+          <label className="flex flex-col gap-2 sm:col-span-2">
+            <span className="text-sm font-medium text-slate-800">
+              End row (1-based, inclusive){' '}
+              <span className="font-normal text-slate-500">— optional</span>
+            </span>
+            <input
+              value={endRow}
+              onChange={(e) => setEndRow(e.target.value)}
+              className={inputClass}
+              placeholder={`Để trống: tối đa ${DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN} dòng từ Start row`}
+              inputMode="numeric"
+            />
+            <span className="text-xs leading-snug text-slate-600">
+              Mỗi lần xuất tối đa {DAILY_LINK_MAX_EXPORT_ROW_SPAN} dòng (từ Start đến
+              End). Để trống End row → hệ thống chỉ xử lý{' '}
+              {DAILY_LINK_DEFAULT_EXPORT_ROW_SPAN} dòng đầu từ Start row, tránh
+              treo khi sheet rất lớn.
+            </span>
+            {endRowValidationError ? (
+              <span className="text-xs text-red-700" role="alert">
+                {endRowValidationError}
+              </span>
+            ) : null}
           </label>
         </div>
 
